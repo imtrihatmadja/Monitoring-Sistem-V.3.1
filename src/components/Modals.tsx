@@ -1535,7 +1535,10 @@ interface StaffTasksModalProps {
   staffName: string;
   activities: Activity[];
   projects: Project[];
+  subActivities?: SubActivity[];
   onClose: () => void;
+  onEditActivity?: (activity: Activity) => void;
+  onEditSubActivity?: (subActivity: SubActivity) => void;
 }
 
 export const StaffTasksModal: React.FC<StaffTasksModalProps> = ({
@@ -1543,78 +1546,196 @@ export const StaffTasksModal: React.FC<StaffTasksModalProps> = ({
   staffName,
   activities,
   projects,
+  subActivities = [],
   onClose,
+  onEditActivity,
+  onEditSubActivity,
 }) => {
   if (!isOpen) return null;
 
-  const staffActivities = activities.filter((a) => a.pic === staffName);
+  const isPicMatch = (picName?: string) => {
+    if (!picName) return false;
+    return picName.toLowerCase().trim() === staffName.toLowerCase().trim();
+  };
+
+  const staffActivities = activities.filter((a) => isPicMatch(a.pic));
+  const staffSubActivities = subActivities.filter((s) => isPicMatch(s.pic));
+
+  const totalTasks = staffActivities.length + staffSubActivities.length;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl border border-slate-100 max-w-xl w-full shadow-xl font-medium text-slate-700 text-xs">
-        <div className="p-4 border-b border-slate-50 flex items-center justify-between">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 text-xs">
+      <div className="bg-white rounded-2xl border border-slate-100 max-w-xl w-full shadow-2xl flex flex-col justify-between overflow-hidden font-medium text-slate-700">
+        <div className="p-4 border-b border-slate-150 flex items-center justify-between bg-slate-50/50 shrink-0">
           <div>
             <h3 className="font-extrabold text-slate-800 text-sm">📋 Daftar Tugas Penugasan Lapangan</h3>
-            <span className="text-[10px] text-slate-400">Personel: <strong className="text-slate-600">{staffName}</strong></span>
+            <span className="text-[10px] text-slate-400">
+              Personel: <strong className="text-slate-600">{staffName}</strong> &middot; Total {totalTasks} Penugasan
+            </span>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg cursor-pointer">
             <X className="w-4 h-4 text-slate-400" />
           </button>
         </div>
 
-        <div className="p-5 max-h-[60vh] overflow-y-auto space-y-3">
-          {staffActivities.length === 0 ? (
-            <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-xl p-4">
-              <p className="italic">Belum ada tanggung jawab aktivitas program assigned ke staf ini saat ini.</p>
+        <div className="p-5 overflow-y-auto space-y-5 max-h-[60vh]">
+          {totalTasks === 0 ? (
+            <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-2xl p-4 border border-dashed border-slate-200">
+              <p className="italic">Belum ada tanggung jawab aktivitas atau sub-aktivitas program yang ditugaskan ke staf ini saat ini.</p>
             </div>
           ) : (
-            staffActivities.map((act) => {
-              const proj = projects.find((p) => p.id === act.projectId);
-              let statusStyle = 'bg-slate-100 text-slate-600 border-slate-200';
-              if (act.status === 'Selesai') {
-                statusStyle = 'bg-emerald-50 text-emerald-800 border-emerald-100';
-              } else if (act.status === 'Sedang Berjalan') {
-                statusStyle = 'bg-sky-50 text-sky-800 border-sky-100';
-              } else if (act.status === 'Tertunda') {
-                statusStyle = 'bg-rose-50 text-rose-800 border-rose-100';
-              }
+            <>
+              {/* Informative Tip Box */}
+              <div className="bg-blue-50 border border-blue-150 rounded-xl p-3 flex items-start gap-2.5 text-[11px] text-blue-800 leading-normal">
+                <span className="text-xs">💡</span>
+                <div>
+                  <strong className="font-extrabold block">Pintasan Pengeditan Cepat:</strong>
+                  Klik langsung pada kartu tugas (Aktivitas Utama atau Sub-Aktivitas) di bawah ini untuk membuka detail pengeditan progress dan statusnya secara langsung.
+                </div>
+              </div>
 
-              return (
-                <div key={act.id} className="p-4 bg-slate-50/60 border border-slate-150 rounded-xl space-y-2 text-xs">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
-                        🏛️ Proyek: {proj ? proj.name : 'Proyek Umum DFW'}
-                      </span>
-                      <h4 className="font-bold text-slate-800 text-xs leading-normal">{act.title}</h4>
-                    </div>
-                    <span className={`py-0.5 px-2 rounded-full border text-[9px] uppercase tracking-wider font-extrabold shrink-0 ${statusStyle}`}>
-                      {act.status}
-                    </span>
-                  </div>
+              {/* Main Activities Section */}
+              {staffActivities.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider text-blue-600 flex items-center gap-1">
+                    📌 Aktivitas Utama ({staffActivities.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {staffActivities.map((act) => {
+                      const proj = projects.find((p) => p.id === act.projectId);
+                      let statusStyle = 'bg-slate-100 text-slate-600 border-slate-200';
+                      if (act.status === 'Selesai') {
+                        statusStyle = 'bg-emerald-50 text-emerald-800 border-emerald-100';
+                      } else if (act.status === 'Sedang Berjalan') {
+                        statusStyle = 'bg-sky-50 text-sky-800 border-sky-100';
+                      } else if (act.status === 'Tertunda') {
+                        statusStyle = 'bg-rose-50 text-rose-800 border-rose-100';
+                      }
 
-                  {act.desc && (
-                    <div className="text-slate-500 font-medium text-[11px] leading-relaxed italic bg-slate-100/40 p-2 rounded-lg">
-                      <FormattedText text={act.desc} className="text-slate-500 font-medium italic text-[11px]" italic />
-                    </div>
-                  )}
+                      return (
+                        <div
+                          key={act.id}
+                          onClick={() => {
+                            if (onEditActivity) {
+                              onEditActivity(act);
+                            }
+                          }}
+                          className="p-3 bg-slate-50/60 border border-slate-150 rounded-xl space-y-2 hover:border-blue-450 hover:bg-blue-50/5 hover:shadow-xs transition-all cursor-pointer group"
+                          title="Klik untuk mengubah progress aktivitas utama"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-0.5">
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
+                                🏛️ Proyek: {proj ? proj.name : 'Proyek Umum DFW'}
+                              </span>
+                              <h5 className="font-bold text-slate-800 text-xs leading-normal group-hover:text-blue-700 transition-colors">
+                                {act.title}
+                              </h5>
+                            </div>
+                            <span className={`py-0.5 px-2 rounded-full border text-[9px] uppercase tracking-wider font-extrabold shrink-0 ${statusStyle}`}>
+                              {act.status}
+                            </span>
+                          </div>
 
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 font-semibold">
-                    <span>Due: {act.dueDate || '—'}</span>
-                    <span className="text-slate-600 font-bold">Pencapaian: {act.progress}% Dan Terpantau</span>
+                          {act.desc && (
+                            <div className="text-slate-500 font-medium text-[11px] leading-relaxed italic bg-slate-100/40 p-2 rounded-lg">
+                              <FormattedText text={act.desc} className="text-slate-500 font-medium italic text-[11px]" italic />
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 font-semibold">
+                            <span>Batas Waktu: {act.dueDate || '—'}</span>
+                            <span className="text-slate-600 font-bold flex items-center gap-1 group-hover:text-blue-600 transition-colors">
+                              Progress: {act.progress}%
+                              <Edit2 className="w-2.5 h-2.5 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })
+              )}
+
+              {/* Sub Activities Section */}
+              {staffSubActivities.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider text-indigo-600 flex items-center gap-1">
+                    ⚡ Sub-Aktivitas ({staffSubActivities.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {staffSubActivities.map((sub) => {
+                      const parentAct = activities.find((a) => a.id === sub.parentActivityId);
+                      const proj = parentAct ? projects.find((p) => p.id === parentAct.projectId) : null;
+                      
+                      let statusStyle = 'bg-slate-100 text-slate-600 border-slate-200';
+                      if (sub.status === 'Selesai') {
+                        statusStyle = 'bg-emerald-50 text-emerald-800 border-emerald-100';
+                      } else if (sub.status === 'Sedang Dikerjakan' || sub.status === 'Sedang Berjalan') {
+                        statusStyle = 'bg-sky-50 text-sky-800 border-sky-100';
+                      } else if (sub.status === 'Tertunda') {
+                        statusStyle = 'bg-rose-50 text-rose-800 border-rose-100';
+                      }
+
+                      let calculatedProgress = 0;
+                      if (sub.status === 'Selesai') calculatedProgress = 100;
+                      else if (sub.status === 'Sedang Dikerjakan') calculatedProgress = 50;
+                      else if (sub.status === 'Tertunda') calculatedProgress = 20;
+
+                      return (
+                        <div
+                          key={sub.id}
+                          onClick={() => {
+                            if (onEditSubActivity) {
+                              onEditSubActivity(sub);
+                            }
+                          }}
+                          className="p-3 bg-slate-50/60 border border-slate-150 rounded-xl space-y-2 hover:border-indigo-450 hover:bg-indigo-50/5 hover:shadow-xs transition-all cursor-pointer group"
+                          title="Klik untuk membuka pengawasan sub-aktivitas ini"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-0.5">
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
+                                🏛️ Proyek: {proj ? proj.name : 'Proyek Umum DFW'} &middot; Induk: {parentAct ? parentAct.title : 'Aktivitas Umum'}
+                              </span>
+                              <h5 className="font-bold text-slate-800 text-xs leading-normal group-hover:text-indigo-700 transition-colors">
+                                {sub.title}
+                              </h5>
+                            </div>
+                            <span className={`py-0.5 px-2 rounded-full border text-[9px] uppercase tracking-wider font-extrabold shrink-0 ${statusStyle}`}>
+                              {sub.status === 'Sedang Dikerjakan' ? 'Sedang Berjalan' : sub.status}
+                            </span>
+                          </div>
+
+                          {sub.desc && (
+                            <div className="text-slate-500 font-medium text-[11px] leading-relaxed italic bg-slate-100/40 p-2 rounded-lg">
+                              <FormattedText text={sub.desc} className="text-slate-500 font-medium italic text-[11px]" italic />
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 font-semibold">
+                            <span>Batas Waktu: {sub.due || '—'}</span>
+                            <span className="text-slate-600 font-bold flex items-center gap-1 group-hover:text-indigo-600 transition-colors">
+                              Progress: {calculatedProgress}%
+                              <Edit2 className="w-2.5 h-2.5 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-end">
+        <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
           <button
             onClick={onClose}
-            className="bg-white border border-slate-200 text-slate-500 py-1.5 px-4 rounded-xl font-bold hover:bg-slate-100 cursor-pointer text-xs"
+            className="bg-slate-800 text-white font-extrabold py-1.5 px-5 rounded-lg hover:bg-slate-900 cursor-pointer text-xs transition-colors"
           >
-            Tutup Windows
+            Tutup Jendela Detail
           </button>
         </div>
       </div>
@@ -1651,18 +1772,32 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
   const [subStatus, setSubStatus] = useState<'Belum Mulai' | 'Sedang Dikerjakan' | 'Tertunda' | 'Selesai'>('Belum Mulai');
   const [subPriority, setSubPriority] = useState<'Low' | 'Normal' | 'High'>('Normal');
   const [subDue, setSubDue] = useState('');
+  const [editingSubId, setEditingSubId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSubTitle('');
+      setSubDesc('');
+      setSubPic('');
+      setSubStatus('Belum Mulai');
+      setSubPriority('Normal');
+      setSubDue('');
+      setEditingSubId(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const relevantSubs = subActivities.filter((item) => item.parentActivityId === parentActivityId);
 
-  const handleCreate = () => {
+  const handleSave = () => {
     if (!subTitle.trim()) {
       alert('Judul Sub-Aktivitas harus diisi!');
       return;
     }
 
     onSaveSubActivity({
+      id: editingSubId || undefined,
       parentActivityId,
       title: subTitle,
       desc: subDesc || undefined,
@@ -1679,6 +1814,7 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
     setSubStatus('Belum Mulai');
     setSubPriority('Normal');
     setSubDue('');
+    setEditingSubId(null);
   };
 
   return (
@@ -1751,13 +1887,41 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
                         <span className={`py-0.2 px-2.5 rounded-full border text-[9px] font-bold ${statusBg}`}>
                           {statusText}
                         </span>
-                        <button
-                          onClick={() => onDeleteSubActivity(item.id)}
-                          className="text-slate-300 hover:text-rose-600 p-1 mt-1 transition-colors"
-                          title="Hapus Sub-Aktivitas"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex gap-1.5 items-center mt-1">
+                          <button
+                            onClick={() => {
+                              setEditingSubId(item.id);
+                              setSubTitle(item.title);
+                              setSubDesc(item.desc || '');
+                              setSubPic(item.pic || '');
+                              setSubStatus(item.status);
+                              setSubPriority(item.priority || 'Normal');
+                              setSubDue(item.due || '');
+                            }}
+                            className={`p-1 transition-colors rounded-md ${editingSubId === item.id ? 'text-blue-600 bg-blue-50' : 'text-slate-300 hover:text-blue-600 hover:bg-slate-100'}`}
+                            title="Ubah Sub-Aktivitas"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (editingSubId === item.id) {
+                                setEditingSubId(null);
+                                setSubTitle('');
+                                setSubDesc('');
+                                setSubPic('');
+                                setSubStatus('Belum Mulai');
+                                setSubPriority('Normal');
+                                setSubDue('');
+                              }
+                              onDeleteSubActivity(item.id);
+                            }}
+                            className="text-slate-300 hover:text-rose-600 p-1 transition-colors rounded-md hover:bg-slate-100"
+                            title="Hapus Sub-Aktivitas"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1769,7 +1933,7 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
           {/* Create form */}
           <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200/50 space-y-4">
             <span className="text-[10px] font-extrabold text-slate-800 uppercase tracking-widest block">
-              ＋ Tambahkan Sub-Aktivitas Baru
+              {editingSubId ? '✏️ Ubah Sub-Aktivitas' : '＋ Tambahkan Sub-Aktivitas Baru'}
             </span>
 
             <div className="grid grid-cols-2 gap-3">
@@ -1854,13 +2018,38 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            <div className="flex justify-end gap-2 pt-2">
+              {editingSubId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingSubId(null);
+                    setSubTitle('');
+                    setSubDesc('');
+                    setSubPic('');
+                    setSubStatus('Belum Mulai');
+                    setSubPriority('Normal');
+                    setSubDue('');
+                  }}
+                  className="bg-slate-250 hover:bg-slate-300 text-slate-600 font-extrabold text-[10px] py-1.5 px-4 rounded-lg cursor-pointer transition-all"
+                >
+                  Batal
+                </button>
+              )}
               <button
                 type="button"
-                onClick={handleCreate}
+                onClick={handleSave}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] py-1.5 px-4 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1 transition-all"
               >
-                <Plus className="w-3.5 h-3.5" /> Tambah Sub-Aktivitas
+                {editingSubId ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" /> Simpan Perubahan
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-3.5 h-3.5" /> Tambah Sub-Aktivitas
+                  </>
+                )}
               </button>
             </div>
           </div>

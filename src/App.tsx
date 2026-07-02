@@ -2348,6 +2348,7 @@ export default function App() {
               staffList={staff}
               activities={activities}
               projects={projects}
+              subActivities={subActivities}
               onUpdateStaffList={updateStaffInStorage}
               onOpenTasksModal={(staffName) => {
                 setSelectedStaffTasksName(staffName);
@@ -3470,9 +3471,22 @@ ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_
         staffName={selectedStaffTasksName}
         activities={activities}
         projects={projects}
+        subActivities={subActivities}
         onClose={() => {
           setIsStaffTasksModalOpen(false);
           setSelectedStaffTasksName('');
+        }}
+        onEditActivity={(act) => {
+          setIsStaffTasksModalOpen(false);
+          setSelectedStaffTasksName('');
+          setSelectedActivity(act);
+          setIsActivityModalOpen(true);
+        }}
+        onEditSubActivity={(sub) => {
+          setIsStaffTasksModalOpen(false);
+          setSelectedStaffTasksName('');
+          setActiveParentActivityId(sub.parentActivityId);
+          setIsSubActivitiesModalOpen(true);
         }}
       />
 

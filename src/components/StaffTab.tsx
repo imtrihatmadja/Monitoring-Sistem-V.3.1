@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { Staff, Activity, Project } from '../types';
+import { Staff, Activity, Project, SubActivity } from '../types';
 import { 
   Users, 
   ClipboardList, 
@@ -18,6 +18,7 @@ interface StaffTabProps {
   staffList: Staff[];
   activities: Activity[];
   projects: Project[];
+  subActivities?: SubActivity[];
   onOpenTasksModal: (staffName: string) => void;
   onUpdateStaffList?: (newList: Staff[]) => void;
 }
@@ -26,6 +27,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
   staffList,
   activities,
   projects,
+  subActivities = [],
   onOpenTasksModal,
   onUpdateStaffList,
 }) => {
@@ -65,12 +67,20 @@ export const StaffTab: React.FC<StaffTabProps> = ({
     });
   }, [activities, activeStaffNames]);
 
+  // Filter sub-activities assigned to the active registered staff members
+  const activeStaffSubActivities = useMemo(() => {
+    return subActivities.filter((s) => {
+      if (!s.pic) return false;
+      return activeStaffNames.includes(s.pic.toLowerCase().trim());
+    });
+  }, [subActivities, activeStaffNames]);
+
   // Aggregate stats across all active staff assignments
   const totalInvolvedStaff = staffList.filter((s) => s.status === 'active').length;
-  const totalAssignedActivities = activeStaffActivities.length;
+  const totalAssignedActivities = activeStaffActivities.length + activeStaffSubActivities.length;
   
   const pendingTasksCount = useMemo(() => {
-    return activeStaffActivities.filter((a) => {
+    const pendingActs = activeStaffActivities.filter((a) => {
       if (a.status === 'Tertunda') return true;
       if (a.status !== 'Selesai' && a.dueDate) {
         const due = new Date(a.dueDate).getTime();
@@ -79,34 +89,77 @@ export const StaffTab: React.FC<StaffTabProps> = ({
       }
       return false;
     }).length;
-  }, [activeStaffActivities]);
+
+    const pendingSubActs = activeStaffSubActivities.filter((s) => {
+      if (s.status === 'Tertunda') return true;
+      if (s.status !== 'Selesai' && s.due) {
+        const due = new Date(s.due).getTime();
+        const now = new Date().getTime();
+        return due < now;
+      }
+      return false;
+    }).length;
+
+    return pendingActs + pendingSubActs;
+  }, [activeStaffActivities, activeStaffSubActivities]);
 
   const averageActivitiesProgress = useMemo(() => {
-    if (activeStaffActivities.length === 0) return 0;
-    const sum = activeStaffActivities.reduce((acc, a) => acc + (a.progress || 0), 0);
-    return Math.round(sum / activeStaffActivities.length);
-  }, [activeStaffActivities]);
+    const totalActsAndSubActsCount = activeStaffActivities.length + activeStaffSubActivities.length;
+    if (totalActsAndSubActsCount === 0) return 0;
+    
+    const activitiesProgressSum = activeStaffActivities.reduce((acc, a) => acc + (a.progress || 0), 0);
+    const subActivitiesProgressSum = activeStaffSubActivities.reduce((acc, s) => {
+      let prog = 0;
+      if (s.status === 'Selesai') prog = 100;
+      else if (s.status === 'Sedang Dikerjakan') prog = 50;
+      else if (s.status === 'Tertunda') prog = 20;
+      return acc + prog;
+    }, 0);
+
+    return Math.round((activitiesProgressSum + subActivitiesProgressSum) / totalActsAndSubActsCount);
+  }, [activeStaffActivities, activeStaffSubActivities]);
 
   // Compile individual staff workloads sheet
   const staffWorkloads = useMemo(() => {
     return filteredStaff.map((staff) => {
-      const staffActs = activities.filter((a) => a.pic === staff.name);
+      const isPicMatch = (picName?: string) => {
+        if (!picName) return false;
+        return picName.toLowerCase().trim() === staff.name.toLowerCase().trim();
+      };
+
+      const staffActs = activities.filter((a) => isPicMatch(a.pic));
+      const staffSubActs = subActivities.filter((s) => isPicMatch(s.pic));
       
-      const totalCount = staffActs.length;
-      const completedCount = staffActs.filter((a) => a.status === 'Selesai').length;
-      const runningCount = staffActs.filter((a) => a.status === 'Sedang Berjalan').length;
-      const delayedCount = staffActs.filter((a) => a.status === 'Tertunda').length;
-      const notStartedCount = staffActs.filter((a) => a.status === 'Belum Mulai').length;
+      const completedCount = staffActs.filter((a) => a.status === 'Selesai').length +
+                             staffSubActs.filter((s) => s.status === 'Selesai').length;
+                             
+      const runningCount = staffActs.filter((a) => a.status === 'Sedang Berjalan').length +
+                           staffSubActs.filter((s) => s.status === 'Sedang Dikerjakan').length;
+                           
+      const delayedCount = staffActs.filter((a) => a.status === 'Tertunda').length +
+                           staffSubActs.filter((s) => s.status === 'Tertunda').length;
+                           
+      const notStartedCount = staffActs.filter((a) => a.status === 'Belum Mulai').length +
+                              staffSubActs.filter((s) => s.status === 'Belum Mulai').length;
+
+      const totalCount = completedCount + runningCount + delayedCount + notStartedCount;
+
+      // Calculate mean progress including mapped sub-activities
+      const actsProgressSum = staffActs.reduce((sum, a) => sum + (a.progress || 0), 0);
+      const subActsProgressSum = staffSubActs.reduce((sum, s) => {
+        let prog = 0;
+        if (s.status === 'Selesai') prog = 100;
+        else if (s.status === 'Sedang Dikerjakan') prog = 50;
+        else if (s.status === 'Tertunda') prog = 20;
+        return sum + prog;
+      }, 0);
 
       const meanProgress = totalCount
-        ? Math.round(staffActs.reduce((sum, a) => sum + a.progress, 0) / totalCount)
+        ? Math.round((actsProgressSum + subActsProgressSum) / totalCount)
         : 0;
 
-      const criticalOverdues = staffActs.filter((a) => {
-        // Simple logic for pending delays
+      const staffActsOverdues = staffActs.filter((a) => {
         if (a.status === 'Tertunda') return true;
-        
-        // checking if deadline is passed to simulate overdue workloads
         if (a.status !== 'Selesai' && a.dueDate) {
           const due = new Date(a.dueDate).getTime();
           const now = new Date().getTime();
@@ -114,6 +167,18 @@ export const StaffTab: React.FC<StaffTabProps> = ({
         }
         return false;
       }).length;
+
+      const staffSubActsOverdues = staffSubActs.filter((s) => {
+        if (s.status === 'Tertunda') return true;
+        if (s.status !== 'Selesai' && s.due) {
+          const due = new Date(s.due).getTime();
+          const now = new Date().getTime();
+          return due < now;
+        }
+        return false;
+      }).length;
+
+      const criticalOverdues = staffActsOverdues + staffSubActsOverdues;
 
       return {
         ...staff,
@@ -126,7 +191,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
         criticalOverdues,
       };
     });
-  }, [filteredStaff, activities]);
+  }, [filteredStaff, activities, subActivities]);
 
   // Handlers for manual add
   const handleSaveManual = () => {
