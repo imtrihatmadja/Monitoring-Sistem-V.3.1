@@ -552,6 +552,7 @@ function mapActivityToDb(act: Activity) {
   const row = toDbRow(act);
   row.project_id = act.projectId;
   row.progress = Number(act.progress || 0);
+  row.pic = act.pic || null;
   // Ensure notes/files are safely stored as JSON
   row.notes = act.notes || [];
   row.files = act.files || [];
@@ -565,6 +566,18 @@ function mapActivityToDb(act: Activity) {
   row.project_name = projectIdToName.get(act.projectId) || projectIdToName.get(cleanId) || 'DFW Project';
   
   return cleanRowAndPrepare('project_activities', row);
+}
+
+function mapSubActivityToDb(subAct: SubActivity) {
+  const row = toDbRow(subAct);
+  row.parent_activity_id = subAct.parentActivityId;
+  row.pic = subAct.pic || null;
+  row.title = subAct.title || '';
+  row.desc = subAct.desc || null;
+  row.status = subAct.status || 'Belum Mulai';
+  row.priority = subAct.priority || 'Normal';
+  row.due = subAct.due || null;
+  return cleanRowAndPrepare('project_sub_activities', row);
 }
 
 function mapBeneficiaryToDb(ben: Beneficiary) {
@@ -1142,7 +1155,7 @@ export const SupabaseSync = {
   },
 
   async saveSubActivity(subAct: SubActivity): Promise<boolean> {
-    const res = await safeUpsert('project_sub_activities', subAct, (item) => cleanRowAndPrepare('project_sub_activities', toDbRow(item)));
+    const res = await safeUpsert('project_sub_activities', subAct, mapSubActivityToDb);
     return res.success;
   },
 
