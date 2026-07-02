@@ -142,6 +142,19 @@ export default function App() {
   const [syncToast, setSyncToast] = useState<'success' | 'info' | 'error' | ''>('');
   const [syncToastMsg, setSyncToastMsg] = useState<string>('');
 
+  // Helper to compare IDs robustly (handles raw UUIDs and friendly IDs seamlessly)
+  const isIdMatch = (id1: string | undefined | null, id2: string | undefined | null) => {
+    if (!id1 || !id2) return false;
+    const clean1 = id1.trim().toLowerCase();
+    const clean2 = id2.trim().toLowerCase();
+    if (clean1 === clean2) return true;
+    try {
+      return SupabaseSync.getUuid(clean1) === SupabaseSync.getUuid(clean2);
+    } catch {
+      return false;
+    }
+  };
+
   const loadLocalFallback = () => {
     const storedProjects = localStorage.getItem('dfw_projects');
     const storedIndicators = localStorage.getItem('dfw_indicators');
@@ -687,7 +700,7 @@ export default function App() {
   // Recalculates project overall progress dynamically based on activity progress averages
   const recalculateProgressAndSave = (projId: string, customActivities?: Activity[]) => {
     const list = customActivities || activities;
-    const projectActs = list.filter((act) => act.projectId === projId);
+    const projectActs = list.filter((act) => isIdMatch(act.projectId, projId));
     
     let newProgress = 0;
     if (projectActs.length > 0) {
@@ -695,7 +708,7 @@ export default function App() {
     }
 
     const updated = projects.map((p) => {
-      if (p.id === projId) {
+      if (isIdMatch(p.id, projId)) {
         return { ...p, progress: newProgress };
       }
       return p;
@@ -1977,7 +1990,7 @@ export default function App() {
   };
 
   // Filter reflections related to currently viewed detail project
-  const currentProjectReflections = reflections.filter((r) => r.projectId === selectedProjectId);
+  const currentProjectReflections = reflections.filter((r) => isIdMatch(r.projectId, selectedProjectId));
 
   // Extract staff names uniquely, trimmed, and sorted alphabetically
   const staffNamesList = Array.from(
@@ -2215,12 +2228,12 @@ export default function App() {
 
           {activeTab === 'project_detail' && selectedProjectId && (
             (() => {
-              const proj = projects.find((p) => p.id === selectedProjectId);
+              const proj = projects.find((p) => isIdMatch(p.id, selectedProjectId));
               if (!proj) return <p className="text-xs">Proyek tidak ditemukan.</p>;
               
-              const projectOutcomes = outcomes.filter((o) => o.projectId === selectedProjectId);
-              const projectIndicators = indicators.filter((i) => i.projectId === selectedProjectId);
-              const projectActs = activities.filter((a) => a.projectId === selectedProjectId);
+              const projectOutcomes = outcomes.filter((o) => isIdMatch(o.projectId, selectedProjectId));
+              const projectIndicators = indicators.filter((i) => isIdMatch(i.projectId, selectedProjectId));
+              const projectActs = activities.filter((a) => isIdMatch(a.projectId, selectedProjectId));
 
               return (
                 <ProjectDetailTab
@@ -2278,11 +2291,11 @@ export default function App() {
 
           {(activeTab === 'add_project' || activeTab === 'edit_project') && (
             <ProjectForm
-              initialProject={activeTab === 'edit_project' ? projects.find((p) => p.id === selectedProjectId) : undefined}
-              initialIndicators={activeTab === 'edit_project' ? indicators.filter((i) => i.projectId === selectedProjectId) : undefined}
+              initialProject={activeTab === 'edit_project' ? projects.find((p) => isIdMatch(p.id, selectedProjectId)) : undefined}
+              initialIndicators={activeTab === 'edit_project' ? indicators.filter((i) => isIdMatch(i.projectId, selectedProjectId)) : undefined}
               initialOutcomes={
                 activeTab === 'edit_project'
-                  ? [...outcomes.filter((o) => o.projectId === selectedProjectId)].sort((a, b) => {
+                  ? [...outcomes.filter((o) => isIdMatch(o.projectId, selectedProjectId))].sort((a, b) => {
                       const getNum = (title: string) => {
                         const match = title.match(/Outcome\s*(\d+)/i) || title.match(/(\d+)/);
                         return match ? parseInt(match[1], 10) : 999999;

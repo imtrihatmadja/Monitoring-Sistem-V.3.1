@@ -177,6 +177,12 @@ try {
             if (item.parentActivityId) {
               textToUuid(item.parentActivityId);
             }
+            if (item.pic && typeof item.pic === 'string') {
+              textToUuid(item.pic);
+            }
+            if (item.name && typeof item.name === 'string') {
+              textToUuid(item.name);
+            }
           }
         });
       }
@@ -189,6 +195,8 @@ try {
   seedLocalData('dfw_beneficiaries');
   seedLocalData('dfw_issues');
   seedLocalData('dfw_reflections');
+  seedLocalData('dfw_staff');
+  seedLocalData('dfw_sub_activities');
 } catch (e) {
   // Silent fallback
 }
@@ -923,15 +931,28 @@ export const SupabaseSync = {
         return id;
       };
 
+      // 1. Process staff first to register ID-to-name mappings before processing activities or sub-activities
+      const staffProcessed = resStaff.data === undefined ? undefined : (resStaff.data || []).map(row => {
+        const s = fromDbRow<Staff>(row);
+        if (!s.status) s.status = 'active';
+        if (s.name) {
+          registerIdMapping(textToUuid(s.name), s.name);
+        }
+        return s;
+      });
+
+      // 2. Process projects first to populate name cache
+      const projectsProcessed = resProjects.data === undefined ? undefined : (resProjects.data || []).map(row => {
+        const item = fromDbRow<Project>(row);
+        if (item.id && item.name) {
+          projectIdToName.set(item.id, item.name);
+          projectIdToName.set(textToUuid(item.id), item.name);
+        }
+        return item;
+      });
+
       const resultData = {
-        projects: resProjects.data === undefined ? undefined : (resProjects.data || []).map(row => {
-          const item = fromDbRow<Project>(row);
-          if (item.id && item.name) {
-            projectIdToName.set(item.id, item.name);
-            projectIdToName.set(textToUuid(item.id), item.name);
-          }
-          return item;
-        }),
+        projects: projectsProcessed,
         indicators: resIndicators.data === undefined ? undefined : (resIndicators.data || []).map(row => {
           const item = fromDbRow<Indicator>(row);
           return item;
@@ -968,11 +989,7 @@ export const SupabaseSync = {
           }
           return issue;
         }),
-        staff: resStaff.data === undefined ? undefined : (resStaff.data || []).map(row => {
-          const s = fromDbRow<Staff>(row);
-          if (!s.status) s.status = 'active';
-          return s;
-        }),
+        staff: staffProcessed,
         subActivities: resSubActs.data === undefined ? undefined : (resSubActs?.data || []).map((row: any) => fromDbRow<SubActivity>(row)),
         reflections: resReflections.data === undefined ? undefined : (resReflections.data || []).map(row => fromDbRow<ProjectReflection>(row)),
         documents: resDocs.data === undefined ? undefined : (resDocs?.data || []).map((row: any) => fromDbRow<ProjectDocument>(row))
@@ -1059,6 +1076,9 @@ export const SupabaseSync = {
         return rows.map(row => {
           const s = fromDbRow<Staff>(row);
           if (!s.status) s.status = 'active';
+          if (s.name) {
+            registerIdMapping(textToUuid(s.name), s.name);
+          }
           return s;
         });
       }
