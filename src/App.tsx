@@ -141,6 +141,40 @@ export default function App() {
   const [syncToast, setSyncToast] = useState<'success' | 'info' | 'error' | ''>('');
   const [syncToastMsg, setSyncToastMsg] = useState<string>('');
 
+  const loadLocalFallback = () => {
+    const storedProjects = localStorage.getItem('dfw_projects');
+    const storedIndicators = localStorage.getItem('dfw_indicators');
+    const storedOutcomes = localStorage.getItem('dfw_outcomes');
+    const storedActivities = localStorage.getItem('dfw_activities');
+    const storedBeneficiaries = localStorage.getItem('dfw_beneficiaries');
+    const storedIssues = localStorage.getItem('dfw_issues');
+    const storedStaff = localStorage.getItem('dfw_staff');
+    const storedSubActivities = localStorage.getItem('dfw_sub_activities');
+    const storedReflections = localStorage.getItem('dfw_reflections');
+    const storedDocuments = localStorage.getItem('dfw_documents');
+
+    const safeParse = <T,>(value: string | null, fallback: T): T => {
+      if (!value) return fallback;
+      try {
+        return JSON.parse(value) as T;
+      } catch (e) {
+        console.warn('Silent local storage parsing restoration active:', e);
+        return fallback;
+      }
+    };
+
+    setProjects(safeParse(storedProjects, INITIAL_PROJECTS));
+    setIndicators(safeParse(storedIndicators, INITIAL_INDICATORS));
+    setOutcomes(safeParse(storedOutcomes, INITIAL_OUTCOMES));
+    setActivities(safeParse(storedActivities, INITIAL_ACTIVITIES));
+    setBeneficiaries(safeParse(storedBeneficiaries, INITIAL_BENEFICIARIES));
+    setIssues(safeParse(storedIssues, INITIAL_ISSUES));
+    setStaff(safeParse(storedStaff, INITIAL_STAFF));
+    setSubActivities(safeParse(storedSubActivities, []));
+    setReflections(safeParse(storedReflections, INITIAL_REFLECTIONS));
+    setDocuments(safeParse(storedDocuments, INITIAL_DOCUMENTS));
+  };
+
   // Reset page when switching tabs or selecting a new project to keep the interface intuitive
   useEffect(() => {
     setCurrentPage(1);
@@ -161,6 +195,7 @@ export default function App() {
         page: targetPg,
         limit: targetLim
       });
+      if (!isSupabaseConfigured) return;
       if (data) {
         if (data.projects !== undefined) {
           setProjects(data.projects);
@@ -236,40 +271,6 @@ export default function App() {
       localStorage.removeItem('dfw_staff');
       localStorage.setItem('dfw_db_cleared_v1_empty', 'true');
     }
-
-    const loadLocalFallback = () => {
-      const storedProjects = localStorage.getItem('dfw_projects');
-      const storedIndicators = localStorage.getItem('dfw_indicators');
-      const storedOutcomes = localStorage.getItem('dfw_outcomes');
-      const storedActivities = localStorage.getItem('dfw_activities');
-      const storedBeneficiaries = localStorage.getItem('dfw_beneficiaries');
-      const storedIssues = localStorage.getItem('dfw_issues');
-      const storedStaff = localStorage.getItem('dfw_staff');
-      const storedSubActivities = localStorage.getItem('dfw_sub_activities');
-      const storedReflections = localStorage.getItem('dfw_reflections');
-      const storedDocuments = localStorage.getItem('dfw_documents');
-
-      const safeParse = <T,>(value: string | null, fallback: T): T => {
-        if (!value) return fallback;
-        try {
-          return JSON.parse(value) as T;
-        } catch (e) {
-          console.warn('Silent local storage parsing restoration active:', e);
-          return fallback;
-        }
-      };
-
-      setProjects(safeParse(storedProjects, INITIAL_PROJECTS));
-      setIndicators(safeParse(storedIndicators, INITIAL_INDICATORS));
-      setOutcomes(safeParse(storedOutcomes, INITIAL_OUTCOMES));
-      setActivities(safeParse(storedActivities, INITIAL_ACTIVITIES));
-      setBeneficiaries(safeParse(storedBeneficiaries, INITIAL_BENEFICIARIES));
-      setIssues(safeParse(storedIssues, INITIAL_ISSUES));
-      setStaff(safeParse(storedStaff, INITIAL_STAFF));
-      setSubActivities(safeParse(storedSubActivities, []));
-      setReflections(safeParse(storedReflections, INITIAL_REFLECTIONS));
-      setDocuments(safeParse(storedDocuments, INITIAL_DOCUMENTS));
-    };
 
     if (isSupabaseConfigured) {
       SupabaseSync.fetchSchemaInfo().then(() => {
@@ -709,6 +710,7 @@ export default function App() {
         page: currentPage,
         limit: itemsPerPage
       });
+      if (!isSupabaseConfigured) return;
       if (data) {
         if (data.projects !== undefined) {
           setProjects(data.projects);
@@ -2597,6 +2599,7 @@ export default function App() {
                           setDbIsConfigured(false);
                           setDbUrl('');
                           setDbKey('');
+                          loadLocalFallback();
                           setSyncToast('success');
                           setSyncToastMsg('Koneksi diputus. Aplikasi kembali ke penyimpanan lokal.');
                           setConfirmState((prev) => ({ ...prev, isOpen: false }));
