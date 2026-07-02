@@ -132,6 +132,7 @@ export default function App() {
   const [sqlCopied, setSqlCopied] = useState(false);
   const [tableStatuses, setTableStatuses] = useState<Record<string, 'loading' | 'ok' | 'missing'>>({});
   const [isCheckingTables, setIsCheckingTables] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   // Pagination states for conserving database egress load per tab
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -182,7 +183,7 @@ export default function App() {
 
   // Optimized background silent data loader to fetch specific tab database partitions
   const silentSyncFromSupabase = async (opts?: { tab?: string; projId?: string; pg?: number; lim?: number }) => {
-    if (!dbIsConfigured) return;
+    if (!dbIsConfigured || isInitialLoading) return;
     try {
       const targetTab = opts?.tab ?? activeTab;
       const targetProj = opts?.projId ?? selectedProjectId;
@@ -359,16 +360,20 @@ export default function App() {
             console.warn('Supabase fetch returned null, falling back to localStorage');
             loadLocalFallback();
           }
+          setIsInitialLoading(false);
         }).catch((err) => {
           console.error('Failed to load from Supabase:', err);
           loadLocalFallback();
+          setIsInitialLoading(false);
         });
       }).catch((err) => {
         console.error('Failed to load Supabase schema:', err);
         loadLocalFallback();
+        setIsInitialLoading(false);
       });
     } else {
       loadLocalFallback();
+      setIsInitialLoading(false);
     }
   }, []);
 

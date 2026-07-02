@@ -57,7 +57,8 @@ const fallbackSchemaUuidColumns: Record<string, string[]> = {
 
 let schemaColumns: Record<string, string[]> = { ...fallbackSchemaColumns };
 let schemaUuidColumns: Record<string, Set<string>> = {};
-let isSchemaFetched = false;
+let isSchemaFetched = true;
+let isSchemaFetchedAttempted = false;
 
 // Initialize schemaUuidColumns with fallback lists
 for (const [table, cols] of Object.entries(fallbackSchemaUuidColumns)) {
@@ -595,7 +596,19 @@ export const SupabaseSync = {
   },
 
   // Discover columns and data types in Supabase using the PostgREST OpenAPI spec endpoint
-  async fetchSchemaInfo(customUrl?: string, customKey?: string): Promise<boolean> {
+  async fetchSchemaInfo(customUrl?: string, customKey?: string, force = false): Promise<boolean> {
+    const isCustom = !!(customUrl || customKey);
+    
+    // If we already have a schema cached and are not forced to refresh/custom connect, immediately return true
+    if (isSchemaFetched && !force && !isCustom) {
+      return true;
+    }
+    
+    // Prevent duplicated pending schema exploration requests
+    if (isSchemaFetchedAttempted && !force && !isCustom) {
+      return false;
+    }
+
     const targetUrl = customUrl || supabaseUrl;
     const targetKey = customKey || supabaseAnonKey;
     
@@ -604,16 +617,24 @@ export const SupabaseSync = {
     }
     
     try {
+      isSchemaFetchedAttempted = true;
       // Build clean base REST URL endpoint
       const cleanBase = targetUrl.endsWith('/') ? targetUrl : `${targetUrl}/`;
       const restUrl = `${cleanBase}rest/v1/`;
       
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 1500); // 1.5 seconds fail-fast timeout to protect app responsiveness
+      
       const res = await fetch(restUrl, {
+        signal: controller.signal,
         headers: {
           'apikey': targetKey,
           'Authorization': `Bearer ${targetKey}`
         }
       });
+      clearTimeout(timeoutId);
       
       if (!res.ok) {
         // Quietly fail schema spec exploration (OpenAPI schemas are often restricted by security policies)
