@@ -1,0 +1,6 @@
+{
+  "name": "DFW Indonesia — Monev Tools",
+  "description": "Sistem Informasi Monitoring dan Evaluasi Proyek DFW Indonesia - Dashboard Manajemen Kinerja Non-Profit",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
