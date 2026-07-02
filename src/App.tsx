@@ -419,13 +419,16 @@ export default function App() {
         }, 1200);
       };
 
-      const channel = supabase
+      const clientInstance = supabase;
+      const channel = clientInstance
         .channel('realtime_sync')
         .on('postgres_changes', { event: '*', schema: 'public' }, handlePayload)
         .subscribe();
 
       return () => {
-        supabase.removeChannel(channel);
+        if (clientInstance) {
+          clientInstance.removeChannel(channel);
+        }
         Object.values(timeouts).forEach(clearTimeout);
       };
     }
