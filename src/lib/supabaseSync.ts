@@ -193,6 +193,23 @@ try {
   // Silent fallback
 }
 
+// Fetch Cache for fetchAllData to speed up load speeds and eliminate redundant query cycles
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+}
+const fetchCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 15000; // 15 seconds cache lifetime
+
+export function clearFetchCache() {
+  fetchCache.clear();
+}
+
+function getCacheKey(options?: { activeTab?: string; projectId?: string; page?: number; limit?: number }): string {
+  const { activeTab = '', projectId = '', page = 0, limit = 0 } = options || {};
+  return `${activeTab}:${projectId}:${page}:${limit}`;
+}
+
 // Recursive self-healing wrapper to rescue operations failing on schema discrepancies (e.g. missing columns)
 async function safeUpsert(
   tableName: string, 
@@ -270,6 +287,7 @@ async function safeUpsert(
     return { success: false, error };
   }
 
+  clearFetchCache();
   return { success: true };
 }
 
@@ -694,6 +712,13 @@ export const SupabaseSync = {
 
     const { activeTab, projectId, page, limit } = options || {};
 
+    const cacheKey = getCacheKey(options);
+    const cached = fetchCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < CACHE_TTL_MS)) {
+      return cached.data;
+    }
+
     try {
       // Ensure we fetch schema beforehand to align parsing
       if (!isSchemaFetched) {
@@ -881,7 +906,7 @@ export const SupabaseSync = {
         return id;
       };
 
-      return {
+      const resultData = {
         projects: resProjects.data === undefined ? undefined : (resProjects.data || []).map(row => {
           const item = fromDbRow<Project>(row);
           if (item.id && item.name) {
@@ -935,6 +960,9 @@ export const SupabaseSync = {
         reflections: resReflections.data === undefined ? undefined : (resReflections.data || []).map(row => fromDbRow<ProjectReflection>(row)),
         documents: resDocs.data === undefined ? undefined : (resDocs?.data || []).map((row: any) => fromDbRow<ProjectDocument>(row))
       };
+
+      fetchCache.set(cacheKey, { data: resultData, timestamp: Date.now() });
+      return resultData;
     } catch (error) {
       console.error('Failed to load initial data from Supabase:', error);
       return null;
@@ -1052,6 +1080,7 @@ export const SupabaseSync = {
       console.error(`Error deleting project from Supabase: [${error.code}] ${error.message}. Detail: ${error.details || '-'}. Hint: ${error.hint || '-'}`);
       return false;
     }
+    clearFetchCache();
     return true;
   },
 
@@ -1071,6 +1100,7 @@ export const SupabaseSync = {
       console.error(`Error deleting indicator from Supabase: [${error.code}] ${error.message}. Detail: ${error.details || '-'}. Hint: ${error.hint || '-'}`);
       return false;
     }
+    clearFetchCache();
     return true;
   },
 
@@ -1090,6 +1120,7 @@ export const SupabaseSync = {
       console.error(`Error deleting outcome from Supabase: [${error.code}] ${error.message}. Detail: ${error.details || '-'}. Hint: ${error.hint || '-'}`);
       return false;
     }
+    clearFetchCache();
     return true;
   },
 
@@ -1106,6 +1137,7 @@ export const SupabaseSync = {
       console.error(`Error deleting activity from Supabase: [${error.code}] ${error.message}. Detail: ${error.details || '-'}. Hint: ${error.hint || '-'}`);
       return false;
     }
+    clearFetchCache();
     return true;
   },
 
@@ -1120,6 +1152,7 @@ export const SupabaseSync = {
     try {
       const { error } = await supabase.from('project_sub_activities').delete().eq('id', targetId);
       if (error) throw error;
+      clearFetchCache();
       return true;
     } catch (e: any) {
       console.warn(`Could not delete sub-activity: [${e.code || '-'}] ${e.message || e}`);
@@ -1140,6 +1173,7 @@ export const SupabaseSync = {
       console.error(`Error deleting beneficiary from Supabase: [${error.code}] ${error.message}. Detail: ${error.details || '-'}. Hint: ${error.hint || '-'}`);
       return false;
     }
+    clearFetchCache();
     return true;
   },
 
@@ -1156,6 +1190,7 @@ export const SupabaseSync = {
       console.error(`Error deleting issue from Supabase: [${error.code}] ${error.message}. Detail: ${error.details || '-'}. Hint: ${error.hint || '-'}`);
       return false;
     }
+    clearFetchCache();
     return true;
   },
 
@@ -1172,6 +1207,7 @@ export const SupabaseSync = {
       console.error(`Error deleting staff from Supabase: [${error.code}] ${error.message}. Detail: ${error.details || '-'}. Hint: ${error.hint || '-'}`);
       return false;
     }
+    clearFetchCache();
     return true;
   },
 
@@ -1188,6 +1224,7 @@ export const SupabaseSync = {
       console.error(`Error deleting reflection from Supabase: [${error.code}] ${error.message}. Detail: ${error.details || '-'}. Hint: ${error.hint || '-'}`);
       return false;
     }
+    clearFetchCache();
     return true;
   },
 
@@ -1202,6 +1239,7 @@ export const SupabaseSync = {
     try {
       const { error } = await supabase.from('project_documents').delete().eq('id', targetId);
       if (error) throw error;
+      clearFetchCache();
       return true;
     } catch (e: any) {
       console.warn(`Could not delete document: [${e.code || '-'}] ${e.message || e}`);

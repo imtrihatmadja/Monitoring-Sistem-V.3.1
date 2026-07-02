@@ -147,23 +147,58 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
 
   const activeProjects = projects.filter(p => !p.isArchived);
 
-  // Calculate count of unique beneficiaries registered to a specific project
+  // Pre-calculate/cache project beneficiary counts to optimize dropdown rendering performance
+  const projectBeneficiaryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    
+    // Cache project ID aliases to avoid repeated O(N) SupabaseSync overheads inside loop
+    const projectAliasesMap = new Map<string, Set<string>>();
+    projects.forEach(p => {
+      const aliases = new Set<string>();
+      aliases.add(p.id);
+      const orig = SupabaseSync.getOriginalId(p.id);
+      if (orig) aliases.add(orig);
+      const u = SupabaseSync.getUuid(p.id);
+      if (u) aliases.add(u);
+      projectAliasesMap.set(p.id, aliases);
+    });
+
+    projects.forEach(p => {
+      const aliases = projectAliasesMap.get(p.id)!;
+      counts[p.id] = beneficiaries.filter(b => 
+        b.registrations.some(r => r.projectId && (
+          aliases.has(r.projectId) || 
+          aliases.has(SupabaseSync.getOriginalId(r.projectId)) || 
+          aliases.has(SupabaseSync.getUuid(r.projectId))
+        ))
+      ).length;
+    });
+
+    return counts;
+  }, [beneficiaries, projects]);
+
+  // Calculate count of unique beneficiaries registered to a specific project (fast cached lookup)
   const getBeneficiaryCountForProject = (projId: string) => {
-    return beneficiaries.filter((b) => 
-      b.registrations.some((r) => {
-        if (!r.projectId) return false;
-        return r.projectId === projId || 
-               SupabaseSync.getOriginalId(r.projectId) === projId || 
-               SupabaseSync.getUuid(r.projectId) === SupabaseSync.getUuid(projId);
-      })
-    ).length;
+    return projectBeneficiaryCounts[projId] || 0;
   };
 
   // Compute activities available for dropdown based on active project selection
   const availableActivitiesForFilter = useMemo(() => {
     const activeProj = selectedProjectId || toolbarProjectFilter;
     if (activeProj) {
-      return activities.filter(a => a.projectId === activeProj || SupabaseSync.getOriginalId(a.projectId) === activeProj || SupabaseSync.getUuid(a.projectId) === SupabaseSync.getUuid(activeProj));
+      const activeProjAliases = new Set<string>([
+        activeProj,
+        SupabaseSync.getOriginalId(activeProj),
+        SupabaseSync.getUuid(activeProj)
+      ].filter(Boolean));
+      
+      return activities.filter(a => 
+        a.projectId && (
+          activeProjAliases.has(a.projectId) || 
+          activeProjAliases.has(SupabaseSync.getOriginalId(a.projectId)) || 
+          activeProjAliases.has(SupabaseSync.getUuid(a.projectId))
+        )
+      );
     }
     return activities;
   }, [activities, selectedProjectId, toolbarProjectFilter]);
@@ -241,15 +276,34 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
   // 1. Filter beneficiaries based on project selector, search term, gender, and activity dropdown
   const filteredBeneficiaries = useMemo(() => {
     const activeFilterProjId = selectedProjectId || toolbarProjectFilter;
+    
+    // Pre-cache set lookups for project and activity ID aliases to bypass costly O(N) lookup inside filter loop
+    const projAliases = activeFilterProjId ? new Set<string>([
+      activeFilterProjId,
+      SupabaseSync.getOriginalId(activeFilterProjId),
+      SupabaseSync.getUuid(activeFilterProjId)
+    ].filter(Boolean)) : null;
+
+    const actAliases = activityFilter ? new Set<string>([
+      activityFilter,
+      SupabaseSync.getOriginalId(activityFilter),
+      SupabaseSync.getUuid(activityFilter)
+    ].filter(Boolean)) : null;
+
+    const activeActTitle = activityFilter 
+      ? activities.find(a => a.id === activityFilter)?.title.toLowerCase().trim() 
+      : null;
+
+    const s = searchQuery.toLowerCase().trim();
+
     return beneficiaries.filter((b) => {
       // Filter by project connection
-      if (activeFilterProjId) {
+      if (projAliases) {
         const isRegisteredToProject = b.registrations.some((r) => {
           if (!r.projectId) return false;
-          if (r.projectId === activeFilterProjId) return true;
-          if (SupabaseSync.getOriginalId(r.projectId) === activeFilterProjId) return true;
-          if (SupabaseSync.getUuid(r.projectId) === SupabaseSync.getUuid(activeFilterProjId)) return true;
-          return false;
+          return projAliases.has(r.projectId) ||
+                 projAliases.has(SupabaseSync.getOriginalId(r.projectId)) ||
+                 projAliases.has(SupabaseSync.getUuid(r.projectId));
         });
         if (!isRegisteredToProject) return false;
       }
@@ -258,12 +312,15 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
       if (activityFilter) {
         const isRegisteredToActivity = b.registrations.some((r) => {
           if (!r.activityId && !r.activityName) return false;
-          if (r.activityId === activityFilter) return true;
-          if (r.activityId && SupabaseSync.getOriginalId(r.activityId) === activityFilter) return true;
-          if (r.activityId && SupabaseSync.getUuid(r.activityId) === SupabaseSync.getUuid(activityFilter)) return true;
-          if (r.activityName) {
-            const activeActTitle = activities.find(a => a.id === activityFilter)?.title.toLowerCase().trim();
-            if (activeActTitle && r.activityName.toLowerCase().trim() === activeActTitle) return true;
+          if (actAliases) {
+            if (actAliases.has(r.activityId || '') || 
+                (r.activityId && actAliases.has(SupabaseSync.getOriginalId(r.activityId))) ||
+                (r.activityId && actAliases.has(SupabaseSync.getUuid(r.activityId)))) {
+              return true;
+            }
+          }
+          if (r.activityName && activeActTitle) {
+            if (r.activityName.toLowerCase().trim() === activeActTitle) return true;
           }
           return false;
         });
@@ -271,7 +328,6 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
       }
 
       // Search term (Matches: name, phone, location, occupation)
-      const s = searchQuery.toLowerCase().trim();
       const matchesSearch = !s ||
         b.name.toLowerCase().includes(s) ||
         (b.phone && b.phone.includes(s)) ||
@@ -299,19 +355,24 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
     let totalPartisipasi = 0; // standard activity milestones
     let totalLogBebas = 0; // free-text logs (no activityId or explicitly annotated)
 
+    const activeProjAliases = activeProj ? new Set<string>([
+      activeProj,
+      SupabaseSync.getOriginalId(activeProj),
+      SupabaseSync.getUuid(activeProj)
+    ].filter(Boolean)) : null;
+
     filteredBeneficiaries.forEach((b) => {
       // Gender split
       if (b.gender === 'Laki-laki') maleCount++;
       else if (b.gender === 'Perempuan') femaleCount++;
 
       // Filter registrations count based on current active project selection if any
-      const relevantRegs = activeProj
+      const relevantRegs = activeProjAliases
         ? b.registrations.filter((r) => {
             if (!r.projectId) return false;
-            if (r.projectId === activeProj) return true;
-            if (SupabaseSync.getOriginalId(r.projectId) === activeProj) return true;
-            if (SupabaseSync.getUuid(r.projectId) === SupabaseSync.getUuid(activeProj)) return true;
-            return false;
+            return activeProjAliases.has(r.projectId) ||
+                   activeProjAliases.has(SupabaseSync.getOriginalId(r.projectId)) ||
+                   activeProjAliases.has(SupabaseSync.getUuid(r.projectId));
           })
         : b.registrations;
 
