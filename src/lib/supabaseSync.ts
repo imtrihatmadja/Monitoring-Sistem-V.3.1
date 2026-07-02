@@ -461,8 +461,12 @@ function cleanRowAndPrepare(tableName: string, row: any): any {
   for (const col of Object.keys(finalRow)) {
     if (uuids.has(col) || col === 'id' || col.endsWith('_id')) {
       const val = finalRow[col];
-      if (typeof val === 'string' && val.trim() !== '') {
-        finalRow[col] = textToUuid(val);
+      if (typeof val === 'string') {
+        if (val.trim() !== '') {
+          finalRow[col] = textToUuid(val);
+        } else {
+          finalRow[col] = null;
+        }
       }
     }
   }
