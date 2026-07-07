@@ -1153,6 +1153,22 @@ export default function App() {
     setTimeout(() => setSyncToast(''), 3000);
   };
 
+  const handleSaveIndicatorPirsInline = (indicatorId: string, description: string) => {
+    const updated = indicators.map((ind) => {
+      if (ind.id === indicatorId) {
+        return {
+          ...ind,
+          type: description
+        };
+      }
+      return ind;
+    });
+
+    updateIndicatorsInStorage(updated);
+    setSyncToast('success');
+    setTimeout(() => setSyncToast(''), 3000);
+  };
+
   // --- SAVE REFLECTION/LESSONS LEARNED ---
   const handleAddReflectionInline = (refData: Partial<ProjectReflection>) => {
     const newRef: ProjectReflection = {
@@ -2351,6 +2367,7 @@ export default function App() {
                     });
                   }}
                   onSaveIndicatorValue={handleSaveIndicatorValueInline}
+                  onSaveIndicatorPirs={handleSaveIndicatorPirsInline}
                   onUpdateBudgetActual={(projId, amount) => {
                     const updated = projects.map(p => p.id === projId ? { ...p, budgetActual: amount } : p);
                     updateProjectsInStorage(updated);
