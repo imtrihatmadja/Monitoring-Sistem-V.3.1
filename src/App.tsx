@@ -67,16 +67,93 @@ import {
 
 export default function App() {
   // --- STATE STORES (PERSISTED IN LOCALSTORAGE) ---
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [indicators, setIndicators] = useState<Indicator[]>([]);
-  const [outcomes, setOutcomes] = useState<Outcome[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [projects, _setProjects] = useState<Project[]>([]);
+  const [indicators, _setIndicators] = useState<Indicator[]>([]);
+  const [outcomes, _setOutcomes] = useState<Outcome[]>([]);
+  const [activities, _setActivities] = useState<Activity[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
-  const [subActivities, setSubActivities] = useState<SubActivity[]>([]);
-  const [reflections, setReflections] = useState<ProjectReflection[]>([]);
+  const [subActivities, _setSubActivities] = useState<SubActivity[]>([]);
+  const [reflections, _setReflections] = useState<ProjectReflection[]>([]);
   const [documents, setDocuments] = useState<ProjectDocument[]>([]);
+
+  // Helper to sort list items based on creation order parsed from their friendly IDs
+  const sortItemsByCreation = <T extends { id: string }>(items: T[]): T[] => {
+    return [...items].sort((a, b) => {
+      const getTimestamp = (id: string): number => {
+        if (!id) return 0;
+        const originalId = SupabaseSync.getOriginalId(id);
+        
+        // Try to match a JS timestamp (10 to 15 digits)
+        const tsMatch = originalId.match(/(\d{10,15})/);
+        if (tsMatch) {
+          return parseInt(tsMatch[1], 10);
+        }
+        
+        // If not found, try to match any number (e.g. ind-1, ind-2)
+        const numMatch = originalId.match(/(\d+)/);
+        if (numMatch) {
+          return parseInt(numMatch[1], 10);
+        }
+        
+        return 0;
+      };
+      
+      const tA = getTimestamp(a.id);
+      const tB = getTimestamp(b.id);
+      if (tA !== tB) {
+        return tA - tB; // oldest first (first input is on top)
+      }
+      
+      const origA = SupabaseSync.getOriginalId(a.id);
+      const origB = SupabaseSync.getOriginalId(b.id);
+      return origA.localeCompare(origB);
+    });
+  };
+
+  const setProjects = (val: Project[] | ((prev: Project[]) => Project[])) => {
+    if (typeof val === 'function') {
+      _setProjects(prev => sortItemsByCreation(val(prev)));
+    } else {
+      _setProjects(sortItemsByCreation(val));
+    }
+  };
+  const setIndicators = (val: Indicator[] | ((prev: Indicator[]) => Indicator[])) => {
+    if (typeof val === 'function') {
+      _setIndicators(prev => sortItemsByCreation(val(prev)));
+    } else {
+      _setIndicators(sortItemsByCreation(val));
+    }
+  };
+  const setOutcomes = (val: Outcome[] | ((prev: Outcome[]) => Outcome[])) => {
+    if (typeof val === 'function') {
+      _setOutcomes(prev => sortItemsByCreation(val(prev)));
+    } else {
+      _setOutcomes(sortItemsByCreation(val));
+    }
+  };
+  const setActivities = (val: Activity[] | ((prev: Activity[]) => Activity[])) => {
+    if (typeof val === 'function') {
+      _setActivities(prev => sortItemsByCreation(val(prev)));
+    } else {
+      _setActivities(sortItemsByCreation(val));
+    }
+  };
+  const setSubActivities = (val: SubActivity[] | ((prev: SubActivity[]) => SubActivity[])) => {
+    if (typeof val === 'function') {
+      _setSubActivities(prev => sortItemsByCreation(val(prev)));
+    } else {
+      _setSubActivities(sortItemsByCreation(val));
+    }
+  };
+  const setReflections = (val: ProjectReflection[] | ((prev: ProjectReflection[]) => ProjectReflection[])) => {
+    if (typeof val === 'function') {
+      _setReflections(prev => sortItemsByCreation(val(prev)));
+    } else {
+      _setReflections(sortItemsByCreation(val));
+    }
+  };
 
   // Navigation state
   const [activeTab, setActiveTab] = useState<
