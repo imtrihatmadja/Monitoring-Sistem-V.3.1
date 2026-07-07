@@ -893,12 +893,12 @@ export default function App() {
     if (selectedProjectId && activeTab === 'edit_project') {
       // Editing
       const updatedProjects = projects.map((p) =>
-        p.id === selectedProjectId ? { ...p, ...projectData } : p
+        isIdMatch(p.id, selectedProjectId) ? { ...p, ...projectData } : p
       );
       updateProjectsInStorage(updatedProjects);
 
       // Save outcomes
-      const filteredOutcomes = outcomes.filter((o) => o.projectId !== selectedProjectId);
+      const filteredOutcomes = outcomes.filter((o) => !isIdMatch(o.projectId, selectedProjectId));
       const newOutcomes = outcomesData.map((o) => ({
         id: o.id || `out-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
         projectId: selectedProjectId,
@@ -907,7 +907,7 @@ export default function App() {
       updateOutcomesInStorage([...filteredOutcomes, ...newOutcomes]);
 
       // Save indicators
-      const filteredIndicators = indicators.filter((i) => i.projectId !== selectedProjectId);
+      const filteredIndicators = indicators.filter((i) => !isIdMatch(i.projectId, selectedProjectId));
       const newIndicators = indicatorsData.map((ind) => ({
         id: ind.id || `ind-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
         projectId: selectedProjectId,
@@ -1148,7 +1148,7 @@ export default function App() {
   };
 
   const handleGeneratePrintOutput = (lang: 'id' | 'en', from: string, to: string) => {
-    const proj = projects.find((p) => p.id === selectedProjectId);
+    const proj = projects.find((p) => isIdMatch(p.id, selectedProjectId));
     if (!proj) {
       alert(lang === 'id' ? 'Proyek tidak ditemukan.' : 'Project not found.');
       return;
@@ -1223,10 +1223,10 @@ export default function App() {
       : (isID ? 'Semua Data' : 'All Data');
 
     // 1. Filter Indicators
-    const projectIndicators = indicators.filter((i) => i.projectId === proj.id);
+    const projectIndicators = indicators.filter((i) => isIdMatch(i.projectId, proj.id));
 
     // 2. Filter Activities
-    const projectActivities = activities.filter((a) => a.projectId === proj.id);
+    const projectActivities = activities.filter((a) => isIdMatch(a.projectId, proj.id));
     
     // Filtered by range: we consider it in range if start date <= to and due date >= from
     const rangedActivities = projectActivities.filter((act) => {
@@ -1238,10 +1238,10 @@ export default function App() {
     });
 
     // Outcomes
-    const projectOutcomes = outcomes.filter((o) => o.projectId === proj.id);
+    const projectOutcomes = outcomes.filter((o) => isIdMatch(o.projectId, proj.id));
 
     // Reflections (Lesson Learned)
-    const projectReflections = reflections.filter((r) => r.projectId === proj.id);
+    const projectReflections = reflections.filter((r) => isIdMatch(r.projectId, proj.id));
 
     // Dynamic stats
     // Indicator progress average

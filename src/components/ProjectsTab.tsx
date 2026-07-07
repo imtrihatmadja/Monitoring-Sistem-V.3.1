@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Project, Activity, Indicator } from '../types';
+import { SupabaseSync } from '../lib/supabaseSync';
 import { 
   Search, FileDown, Plus, Edit, Archive, Eye, Trash2,
   CheckCircle2, TrendingUp, DollarSign, LayoutGrid, 
@@ -214,8 +215,8 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                   </tr>
                 ) : (
                   filteredProjects.map((p, idx) => {
-                    const projectActivities = activities.filter((act) => act.projectId === p.id);
-                    const projectIndicators = indicators.filter((i) => i.projectId === p.id);
+                    const projectActivities = activities.filter((act) => SupabaseSync.isIdMatch(act.projectId, p.id));
+                    const projectIndicators = indicators.filter((i) => SupabaseSync.isIdMatch(i.projectId, p.id));
                     const activitiesProgress = projectActivities.length
                       ? Math.round(projectActivities.reduce((sum, act) => sum + act.progress, 0) / projectActivities.length)
                       : null;

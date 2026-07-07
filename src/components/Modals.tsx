@@ -1463,12 +1463,12 @@ export const BenDetailModal: React.FC<BenDetailModalProps> = ({
                 </p>
               ) : (
                 beneficiary.registrations.map((reg, idx) => {
-                  const associatedProj = projects.find((p) => p.id === reg.projectId || SupabaseSync.getOriginalId(reg.projectId) === p.id || SupabaseSync.getUuid(reg.projectId) === SupabaseSync.getUuid(p.id));
+                  const associatedProj = projects.find((p) => SupabaseSync.isIdMatch(p.id, reg.projectId));
                   
                   // Resolve activity title
                   let actTitle = reg.activityName || 'Aktivitas Umum';
                   if (reg.activityId) {
-                    const actObj = activities.find((a) => a.id === reg.activityId);
+                    const actObj = activities.find((a) => SupabaseSync.isIdMatch(a.id, reg.activityId));
                     if (actObj) actTitle = actObj.title;
                   }
 
@@ -1602,7 +1602,7 @@ export const StaffTasksModal: React.FC<StaffTasksModalProps> = ({
                   </h4>
                   <div className="space-y-2">
                     {staffActivities.map((act) => {
-                      const proj = projects.find((p) => p.id === act.projectId);
+                      const proj = projects.find((p) => SupabaseSync.isIdMatch(p.id, act.projectId));
                       let statusStyle = 'bg-slate-100 text-slate-600 border-slate-200';
                       if (act.status === 'Selesai') {
                         statusStyle = 'bg-emerald-50 text-emerald-800 border-emerald-100';
@@ -1665,8 +1665,8 @@ export const StaffTasksModal: React.FC<StaffTasksModalProps> = ({
                   </h4>
                   <div className="space-y-2">
                     {staffSubActivities.map((sub) => {
-                      const parentAct = activities.find((a) => a.id === sub.parentActivityId);
-                      const proj = parentAct ? projects.find((p) => p.id === parentAct.projectId) : null;
+                      const parentAct = activities.find((a) => SupabaseSync.isIdMatch(a.id, sub.parentActivityId));
+                      const proj = parentAct ? projects.find((p) => SupabaseSync.isIdMatch(p.id, parentAct.projectId)) : null;
                       
                       let statusStyle = 'bg-slate-100 text-slate-600 border-slate-200';
                       if (sub.status === 'Selesai') {
@@ -1788,7 +1788,7 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
 
   if (!isOpen) return null;
 
-  const relevantSubs = subActivities.filter((item) => item.parentActivityId === parentActivityId);
+  const relevantSubs = subActivities.filter((item) => SupabaseSync.isIdMatch(item.parentActivityId, parentActivityId));
 
   const handleSave = () => {
     if (!subTitle.trim()) {

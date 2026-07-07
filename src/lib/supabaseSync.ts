@@ -628,6 +628,18 @@ function mapReflectionToDb(ref: ProjectReflection) {
 
 // Exportable Sync APIs
 export const SupabaseSync = {
+  isIdMatch(id1: string | undefined | null, id2: string | undefined | null): boolean {
+    if (!id1 || !id2) return false;
+    const clean1 = id1.trim().toLowerCase();
+    const clean2 = id2.trim().toLowerCase();
+    if (clean1 === clean2) return true;
+    try {
+      return textToUuid(clean1) === textToUuid(clean2);
+    } catch {
+      return false;
+    }
+  },
+
   getOriginalId(uuid: string): string {
     if (!uuid) return uuid;
     const lower = uuid.trim().toLowerCase();

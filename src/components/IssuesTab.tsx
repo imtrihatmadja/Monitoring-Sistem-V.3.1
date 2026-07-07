@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Issue, Project, Activity, IssueUpdate } from '../types';
+import { SupabaseSync } from '../lib/supabaseSync';
 import { 
   Search, RotateCcw, Plus, Eye, AlertTriangle, CheckCircle2, 
   MessageSquare, Info, Link, Tag, Calendar, X, Edit, Trash2, 
@@ -360,7 +361,7 @@ export const IssuesTab: React.FC<IssuesTabProps> = ({
                 </tr>
               ) : (
                 filteredIssues.map((issue, idx) => {
-                  const associatedProject = projects.find((p) => p.id === issue.projectId);
+                  const associatedProject = projects.find((p) => SupabaseSync.isIdMatch(p.id, issue.projectId));
                   
                   // Style configurations
                   let severityStyle = 'bg-slate-50 text-slate-600 border-slate-200';
@@ -598,7 +599,7 @@ export const IssuesTab: React.FC<IssuesTabProps> = ({
                   >
                     <option value="">-- Pilih Aktivitas (Opsional) --</option>
                     {activities
-                      .filter((act) => act.projectId === formProjectId)
+                      .filter((act) => SupabaseSync.isIdMatch(act.projectId, formProjectId))
                       .map((act) => (
                         <option key={act.id} value={act.id}>{act.title}</option>
                       ))
@@ -745,8 +746,8 @@ export const IssuesTab: React.FC<IssuesTabProps> = ({
                   <h4 className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-1.5">Proyek &amp; Program</h4>
                   {selectedIssue.projectId ? (
                     (() => {
-                      const p = projects.find(proj => proj.id === selectedIssue.projectId);
-                      const act = activities.find(a => a.id === selectedIssue.activityId);
+                      const p = projects.find(proj => SupabaseSync.isIdMatch(proj.id, selectedIssue.projectId));
+                      const act = activities.find(a => SupabaseSync.isIdMatch(a.id, selectedIssue.activityId));
                       return (
                         <div className="bg-blue-50/40 border border-blue-100/40 p-3 rounded-xl space-y-1.5">
                           <p className="font-bold text-slate-800 text-[11px] leading-snug">

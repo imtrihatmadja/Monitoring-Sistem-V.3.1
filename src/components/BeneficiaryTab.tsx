@@ -498,7 +498,7 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
 
       const rows1 = filteredBeneficiaries.map((b, i) => {
         const projs = b.registrations.map(r => {
-          const pObj = projects.find(p => p.id === r.projectId || SupabaseSync.getOriginalId(r.projectId) === p.id || SupabaseSync.getUuid(r.projectId) === SupabaseSync.getUuid(p.id));
+          const pObj = projects.find(p => SupabaseSync.isIdMatch(p.id, r.projectId));
           return pObj ? pObj.name : 'Proyek Umum';
         });
         const uniqueProjs = Array.from(new Set(projs)).join(', ');
@@ -530,8 +530,8 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
 
       filteredBeneficiaries.forEach((b) => {
         b.registrations.forEach((reg) => {
-          const pObj = projects.find(p => p.id === reg.projectId || SupabaseSync.getOriginalId(reg.projectId) === p.id || SupabaseSync.getUuid(reg.projectId) === SupabaseSync.getUuid(p.id));
-          const actObj = reg.activityId ? activities.find(a => a.id === reg.activityId) : null;
+          const pObj = projects.find(p => SupabaseSync.isIdMatch(p.id, reg.projectId));
+          const actObj = reg.activityId ? activities.find(a => SupabaseSync.isIdMatch(a.id, reg.activityId)) : null;
           
           let actNameStr = reg.activityName || 'Aktivitas Umum';
           if (actObj) {
@@ -794,7 +794,7 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
             if (row.activity_name) {
               const rowActLower = String(row.activity_name).toLowerCase().trim();
               const matchedActObj = currentActivities.find(a => 
-                a.projectId === resolvedProjectId && 
+                SupabaseSync.isIdMatch(a.projectId, resolvedProjectId) && 
                 a.title.toLowerCase().trim() === rowActLower
               );
 
@@ -830,7 +830,7 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
             if (finalSubActivityName && matchedActivityId) {
               const rowSubActLower = finalSubActivityName.toLowerCase().trim();
               const matchedSubActObj = currentSubActivities.find(s => 
-                s.parentActivityId === matchedActivityId && 
+                SupabaseSync.isIdMatch(s.parentActivityId, matchedActivityId) && 
                 s.title.toLowerCase().trim() === rowSubActLower
               );
 
@@ -872,11 +872,11 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
             workingList = workingList.map(b => {
               if (b.id === targetBenId) {
                 const alreadyRegistered = b.registrations.some(r => 
-                  r.projectId === regObj.projectId && 
-                  ((r.activityId && r.activityId === regObj.activityId) || 
+                  SupabaseSync.isIdMatch(r.projectId, regObj.projectId) && 
+                  ((r.activityId && SupabaseSync.isIdMatch(r.activityId, regObj.activityId)) || 
                    (r.activityName && r.activityName === regObj.activityName)) &&
                   ((!regObj.subActivityId && !r.subActivityId) || 
-                   (r.subActivityId && r.subActivityId === regObj.subActivityId) ||
+                   (r.subActivityId && SupabaseSync.isIdMatch(r.subActivityId, regObj.subActivityId)) ||
                    (r.subActivityName && r.subActivityName === regObj.subActivityName))
                 );
                 if (alreadyRegistered) return b;

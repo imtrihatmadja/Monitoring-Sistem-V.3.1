@@ -1,5 +1,6 @@
 import React from 'react';
 import { Project, Activity, Issue, Indicator } from '../types';
+import { SupabaseSync } from '../lib/supabaseSync';
 import { 
   Folder, Play, AlertTriangle, CheckCircle, Percent, MapPin, 
   User, Calendar, Award, Sparkles, DollarSign, TrendingUp, 
@@ -51,7 +52,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const avgProgress = totalProjects
     ? Math.round(nonArchivedProjects.reduce((sum, p) => {
         // Calculate average progress from activities first if available
-        const pActs = activities.filter((a) => a.projectId === p.id);
+        const pActs = activities.filter((a) => SupabaseSync.isIdMatch(a.projectId, p.id));
         const pProgress = pActs.length
           ? Math.round(pActs.reduce((s, act) => s + act.progress, 0) / pActs.length)
           : p.progress;
@@ -66,8 +67,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     ? Math.round((totalBudgetActual / totalBudgetApproved) * 100)
     : 0;
 
-  const totalActsCount = activities.filter(a => nonArchivedProjects.some(p => p.id === a.projectId)).length;
-  const completedActsCount = activities.filter(a => a.status === 'Selesai' && nonArchivedProjects.some(p => p.id === a.projectId)).length;
+  const totalActsCount = activities.filter(a => nonArchivedProjects.some(p => SupabaseSync.isIdMatch(p.id, a.projectId))).length;
+  const completedActsCount = activities.filter(a => a.status === 'Selesai' && nonArchivedProjects.some(p => SupabaseSync.isIdMatch(p.id, a.projectId))).length;
   const globalActivityProgress = totalActsCount > 0 
     ? Math.round((completedActsCount / totalActsCount) * 100)
     : 0;
