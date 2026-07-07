@@ -79,15 +79,30 @@ try {
 }
 
 // Register helper to store bidirectionally
+let isBatchingMappings = false;
+let hasPendingMappingChanges = false;
+
+function persistIdMappings() {
+  if (hasPendingMappingChanges) {
+    try {
+      safeStorage.setItem('dfw_uuid_mappings', JSON.stringify(uuidToOriginalMap));
+      hasPendingMappingChanges = false;
+    } catch (e) {
+      // Safe fallback
+    }
+  }
+}
+
 function registerIdMapping(uuid: string, original: string) {
   const u = uuid.trim().toLowerCase();
   const o = original.trim();
   if (u && o && u !== o.toLowerCase()) {
-    uuidToOriginalMap[u] = o;
-    try {
-      safeStorage.setItem('dfw_uuid_mappings', JSON.stringify(uuidToOriginalMap));
-    } catch (e) {
-      // Safe fallback
+    if (uuidToOriginalMap[u] !== o) {
+      uuidToOriginalMap[u] = o;
+      hasPendingMappingChanges = true;
+      if (!isBatchingMappings) {
+        persistIdMappings();
+      }
     }
   }
 }
@@ -158,6 +173,7 @@ function textToUuid(str: string): string {
 
 // Pre-seed mapping cache from any existing safeStorage items to guarantee seamless offline-to-online translations
 try {
+  isBatchingMappings = true;
   const seedLocalData = (key: string) => {
     const raw = safeStorage.getItem(key);
     if (raw) {
@@ -197,7 +213,10 @@ try {
   seedLocalData('dfw_reflections');
   seedLocalData('dfw_staff');
   seedLocalData('dfw_sub_activities');
+  isBatchingMappings = false;
+  persistIdMappings();
 } catch (e) {
+  isBatchingMappings = false;
   // Silent fallback
 }
 
@@ -757,6 +776,7 @@ export const SupabaseSync = {
     }
 
     try {
+      isBatchingMappings = true;
       // Ensure we fetch schema beforehand to align parsing
       if (!isSchemaFetched) {
         await this.fetchSchemaInfo().catch(() => {});
@@ -1008,8 +1028,11 @@ export const SupabaseSync = {
       };
 
       fetchCache.set(cacheKey, { data: resultData, timestamp: Date.now() });
+      isBatchingMappings = false;
+      persistIdMappings();
       return resultData;
     } catch (error) {
+      isBatchingMappings = false;
       console.error('Failed to load initial data from Supabase:', error);
       return null;
     }
@@ -1020,12 +1043,14 @@ export const SupabaseSync = {
       return null;
     }
     try {
+      isBatchingMappings = true;
       if (!isSchemaFetched) {
         await this.fetchSchemaInfo().catch(() => {});
       }
       
       const res = await supabase.from(table).select('*');
       if (res.error) {
+        isBatchingMappings = false;
         return null;
       }
       
@@ -1035,8 +1060,9 @@ export const SupabaseSync = {
       
       const rows = res.data || [];
       
+      let processed: any[] = [];
       if (table === 'projects') {
-        return rows.map(row => {
+        processed = rows.map(row => {
           const item = fromDbRow<Project>(row);
           if (item.id && item.name) {
             projectIdToName.set(item.id, item.name);
@@ -1044,15 +1070,12 @@ export const SupabaseSync = {
           }
           return item;
         });
-      }
-      if (table === 'project_indicators') {
-        return rows.map(row => fromDbRow<Indicator>(row));
-      }
-      if (table === 'project_outcomes') {
-        return rows.map(row => fromDbRow<Outcome>(row));
-      }
-      if (table === 'project_activities') {
-        return rows.map(row => {
+      } else if (table === 'project_indicators') {
+        processed = rows.map(row => fromDbRow<Indicator>(row));
+      } else if (table === 'project_outcomes') {
+        processed = rows.map(row => fromDbRow<Outcome>(row));
+      } else if (table === 'project_activities') {
+        processed = rows.map(row => {
           const act = fromDbRow<Activity>(row);
           if (typeof act.notes === 'string') {
             try { act.notes = JSON.parse(act.notes); } catch { act.notes = []; }
@@ -1068,24 +1091,21 @@ export const SupabaseSync = {
           }
           return act;
         });
-      }
-      if (table === 'beneficiaries') {
-        return rows.map(row => {
+      } else if (table === 'beneficiaries') {
+        processed = rows.map(row => {
           const ben = fromDbRow<any>(row);
           return normalizeBeneficiary(ben);
         });
-      }
-      if (table === 'issues') {
-        return rows.map(row => {
+      } else if (table === 'issues') {
+        processed = rows.map(row => {
           const issue = fromDbRow<Issue>(row);
           if (typeof issue.updates === 'string') {
             try { issue.updates = JSON.parse(issue.updates); } catch { issue.updates = []; }
           }
           return issue;
         });
-      }
-      if (table === 'staff') {
-        return rows.map(row => {
+      } else if (table === 'staff') {
+        processed = rows.map(row => {
           const s = fromDbRow<Staff>(row);
           if (!s.status) s.status = 'active';
           if (s.name) {
@@ -1093,19 +1113,21 @@ export const SupabaseSync = {
           }
           return s;
         });
-      }
-      if (table === 'project_sub_activities') {
-        return rows.map(row => fromDbRow<SubActivity>(row));
-      }
-      if (table === 'project_reflections') {
-        return rows.map(row => fromDbRow<ProjectReflection>(row));
-      }
-      if (table === 'project_documents') {
-        return rows.map(row => fromDbRow<ProjectDocument>(row));
+      } else if (table === 'project_sub_activities') {
+        processed = rows.map(row => fromDbRow<SubActivity>(row));
+      } else if (table === 'project_reflections') {
+        processed = rows.map(row => fromDbRow<ProjectReflection>(row));
+      } else if (table === 'project_documents') {
+        processed = rows.map(row => fromDbRow<ProjectDocument>(row));
+      } else {
+        processed = rows.map(row => fromDbRow<any>(row));
       }
       
-      return rows.map(row => fromDbRow<any>(row));
+      isBatchingMappings = false;
+      persistIdMappings();
+      return processed;
     } catch (err) {
+      isBatchingMappings = false;
       console.error(`Error fetching single table ${table}:`, err);
       return null;
     }
