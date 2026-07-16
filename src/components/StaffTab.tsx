@@ -121,7 +121,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
 
   // Compile individual staff workloads sheet
   const staffWorkloads = useMemo(() => {
-    return filteredStaff.map((staff) => {
+    const workloads = filteredStaff.map((staff) => {
       const isPicMatch = (picName?: string) => {
         if (!picName) return false;
         return picName.toLowerCase().trim() === staff.name.toLowerCase().trim();
@@ -191,6 +191,9 @@ export const StaffTab: React.FC<StaffTabProps> = ({
         criticalOverdues,
       };
     });
+
+    // Urutkan berdasarkan total penugasan terbanyak (descending)
+    return [...workloads].sort((a, b) => b.totalCount - a.totalCount);
   }, [filteredStaff, activities, subActivities]);
 
   // Handlers for manual add

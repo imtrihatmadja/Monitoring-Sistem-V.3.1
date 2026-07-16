@@ -2529,7 +2529,7 @@ export default function App() {
           )}
 
           {/* Pagination and egress stats bar */}
-          {['projects', 'issues', 'staff', 'documents'].includes(activeTab) && (
+          {['projects', 'issues', 'documents'].includes(activeTab) && (
             <div id="dfw-pagination-container" className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 border border-slate-200 p-3.5 rounded-2xl text-xs text-slate-500">
               <div className="flex items-center gap-1.5 font-mono">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -2554,7 +2554,6 @@ export default function App() {
                     activeTab === 'projects' ? (projects?.length || 0) < itemsPerPage :
                     activeTab === 'beneficiary' ? (beneficiaries?.length || 0) < itemsPerPage :
                     activeTab === 'issues' ? (issues?.length || 0) < itemsPerPage :
-                    activeTab === 'staff' ? (staff?.length || 0) < itemsPerPage :
                     activeTab === 'documents' ? (documents?.length || 0) < itemsPerPage : false
                   }
                   className="px-3 py-1.5 font-bold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 active:scale-95 disabled:opacity-50 disabled:pointer-events-none transition-all cursor-pointer shadow-xs inline-flex items-center gap-1"
