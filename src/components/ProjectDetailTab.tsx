@@ -85,6 +85,7 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
   // Inline indicator states for quick value edits
   const [indValues, setIndValues] = useState<Record<string, number>>({});
   const [indNotes, setIndNotes] = useState<Record<string, string>>({});
+  const [confirmClearNotesId, setConfirmClearNotesId] = useState<string | null>(null);
 
   // Budget actual update states
   const [showBudgetUpdateModal, setShowBudgetUpdateModal] = useState(false);
@@ -109,8 +110,24 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
 
   const handleSaveInd = (id: string, currentVal: number, existingNotes: string) => {
     const val = indValues[id] !== undefined ? indValues[id] : currentVal;
-    const note = indNotes[id] !== undefined ? indNotes[id] : existingNotes;
-    onSaveIndicatorValue(id, val, note);
+    const newNoteText = indNotes[id] !== undefined ? indNotes[id] : '';
+    
+    let finalNotes = existingNotes;
+    if (newNoteText.trim() !== '') {
+      const timestamp = new Date().toLocaleString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).replace('.', ':');
+      const newEntry = `• [${timestamp}] ${newNoteText.trim()}`;
+      finalNotes = existingNotes ? `${newEntry}\n${existingNotes}` : newEntry;
+    }
+    
+    onSaveIndicatorValue(id, val, finalNotes);
+    // Reset the input field for this indicator after save
+    setIndNotes((prev) => ({ ...prev, [id]: '' }));
   };
 
   const formatRupiah = (value: any) => {
@@ -651,16 +668,53 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
 
                     {/* Catatan / Keterangan Capaian Display */}
                     {ind.notes ? (
-                      <div className="bg-slate-100/65 border border-slate-200/60 p-2.5 rounded-xl mt-2 space-y-1.5 animate-fadeIn">
-                        <div className="text-[11px] font-medium text-slate-700 leading-relaxed italic">
-                          <FormattedText text={ind.notes} className="text-slate-700 font-medium italic text-[11px]" italic />
+                      <div className="bg-slate-100/65 border border-slate-200/60 p-2.5 rounded-xl mt-2 space-y-1.5 animate-fadeIn relative group">
+                        <div className="text-[11px] font-medium text-slate-700 leading-relaxed">
+                          <FormattedText text={ind.notes} className="text-slate-700 font-medium text-[11px]" />
                         </div>
-                        {ind.notesUpdatedAt && (
-                          <div className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
-                            <Clock className="w-3 h-3 text-slate-400" />
-                            <span>Catatan Terakhir: {ind.notesUpdatedAt}</span>
-                          </div>
-                        )}
+                        <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-200/40">
+                          {ind.notesUpdatedAt && (
+                            <div className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span>Catatan Terakhir: {ind.notesUpdatedAt}</span>
+                            </div>
+                          )}
+                          {confirmClearNotesId === ind.id ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-bold text-slate-400">Yakin hapus?</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSaveIndicatorValue(ind.id, ind.current, '');
+                                  setConfirmClearNotesId(null);
+                                }}
+                                className="text-[9px] font-extrabold text-rose-600 hover:text-rose-850 transition-colors cursor-pointer"
+                              >
+                                Ya
+                              </button>
+                              <span className="text-slate-300 text-[8px]">|</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConfirmClearNotesId(null);
+                                }}
+                                className="text-[9px] font-extrabold text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
+                              >
+                                Batal
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmClearNotesId(ind.id);
+                              }}
+                              className="text-[9px] font-bold text-rose-500 hover:text-rose-750 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
+                            >
+                              Hapus Semua
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="text-[10px] text-slate-400 italic mt-1 font-medium bg-slate-50 border border-slate-100 p-2.5 rounded-xl">
@@ -669,25 +723,25 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
                     )}
 
                     {/* Inline updating inputs */}
-                    <div className="space-y-2 pt-2 border-t border-slate-100/60">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div className="space-y-1 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <div className="space-y-3 pt-3 border-t border-slate-100/60">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div className="md:col-span-1 space-y-1 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
                           <span>Edit Angka Capaian</span>
                           <input
                             type="number"
-                            className="w-full bg-white border border-slate-200 py-1.5 px-2.5 rounded-lg focus:outline-none focus:border-blue-400 text-xs font-bold text-slate-800"
+                            className="w-full bg-white border border-slate-200 py-2.5 px-3 rounded-lg focus:outline-none focus:border-blue-400 text-xs font-bold text-slate-800"
                             value={currentVal}
                             onChange={(e) => handleIndValueChange(ind.id, Number(e.target.value))}
                           />
                         </div>
 
-                        <div className="space-y-1 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
-                          <span>Catatan / Keterangan Capaian</span>
-                          <input
-                            type="text"
-                            placeholder="Tulis progres, kendala atau info capaian..."
-                            className="w-full bg-white border border-slate-200 py-1.5 px-2.5 rounded-lg focus:outline-none focus:border-blue-400 text-xs font-medium text-slate-800"
-                            value={indNotes[ind.id] !== undefined ? indNotes[ind.id] : (ind.notes || '')}
+                        <div className="md:col-span-3 space-y-1 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                          <span>Tambah Catatan Progres Baru</span>
+                          <textarea
+                            rows={3}
+                            placeholder="Tulis perkembangan, kendala atau info capaian baru... (Tekan Enter untuk paragraf baru, gunakan tanda • atau - untuk membuat poin-poin agar tertata rapi)"
+                            className="w-full bg-white border border-slate-200 py-2.5 px-3 rounded-lg focus:outline-none focus:border-blue-400 text-xs font-medium text-slate-800 min-h-[90px] leading-relaxed"
+                            value={indNotes[ind.id] || ''}
                             onChange={(e) => handleIndNotesChange(ind.id, e.target.value)}
                           />
                         </div>
@@ -1023,8 +1077,8 @@ const PirsIndicatorRow: React.FC<{
         {isEditing ? (
           <div className="space-y-2 animate-fadeIn">
             <textarea
-              className="w-full min-h-[100px] bg-white border border-slate-200 p-3 rounded-xl text-xs font-semibold text-slate-800 leading-relaxed focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
-              placeholder="Tuliskan narasi detail, definisi operasional, cara mengukur, serta bukti capaian yang relevan untuk indikator ini..."
+              className="w-full min-h-[160px] bg-white border border-slate-200 p-3.5 rounded-xl text-xs font-semibold text-slate-800 leading-relaxed focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+              placeholder="Tuliskan narasi detail, definisi operasional, cara mengukur, serta bukti capaian yang relevan untuk indikator ini... (Mendukung paragraf baru dengan tombol Enter, serta daftar poin menggunakan tanda • atau -)"
               value={narrative}
               onChange={(e) => setNarrative(e.target.value)}
             />

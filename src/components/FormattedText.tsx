@@ -19,7 +19,7 @@ export const FormattedText: React.FC<FormattedTextProps> = ({ text, className = 
     if (currentList) {
       if (currentList.type === 'ul') {
         elements.push(
-          <ul key={`list-${key}`} className="list-disc pl-5 my-1.5 space-y-1 text-slate-700">
+          <ul key={`list-${key}`} className="list-disc pl-5 my-2 space-y-1.5 text-slate-700">
             {currentList.items.map((item, idx) => (
               <li key={idx} className="leading-relaxed">
                 {item}
@@ -29,7 +29,7 @@ export const FormattedText: React.FC<FormattedTextProps> = ({ text, className = 
         );
       } else {
         elements.push(
-          <ol key={`list-${key}`} className="list-decimal pl-5 my-1.5 space-y-1 text-slate-700">
+          <ol key={`list-${key}`} className="list-decimal pl-5 my-2 space-y-1.5 text-slate-700">
             {currentList.items.map((item, idx) => (
               <li key={idx} className="leading-relaxed">
                 {item}
@@ -46,9 +46,9 @@ export const FormattedText: React.FC<FormattedTextProps> = ({ text, className = 
     const trimmed = line.trim();
     if (!trimmed) {
       pushCurrentList(i);
-      // Empty line acts as a paragraph break, add a tiny gap if there was content before
+      // Empty line acts as a paragraph break, add a clean gap
       if (elements.length > 0) {
-        elements.push(<div key={`gap-${i}`} className="h-1.5" />);
+        elements.push(<div key={`gap-${i}`} className="h-3" />);
       }
       return;
     }
@@ -88,7 +88,7 @@ export const FormattedText: React.FC<FormattedTextProps> = ({ text, className = 
   pushCurrentList(lines.length);
 
   return (
-    <div className={`space-y-1 text-xs text-slate-700 ${className}`}>
+    <div className={`space-y-2.5 text-xs text-slate-700 ${className}`}>
       {elements}
     </div>
   );
