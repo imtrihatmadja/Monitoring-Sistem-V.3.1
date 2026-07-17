@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { Project, Activity, Indicator, Beneficiary, Issue, Staff, SubActivity, ActivityFile, ActivityNote } from '../types';
-import { X, Upload, Download, Trash2, Edit2, AlertTriangle, FileText, CheckCircle2, Check, Plus, Tag, HelpCircle, Users, Eye } from 'lucide-react';
+import { X, Upload, Download, Trash2, Edit2, AlertTriangle, FileText, CheckCircle2, Check, Plus, Tag, HelpCircle, Users, Eye, Award, TrendingUp } from 'lucide-react';
 import { SupabaseSync } from '../lib/supabaseSync';
 import { FormattedText } from './FormattedText';
 
@@ -361,16 +361,21 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
 interface PrintModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onGeneratePrint: (lang: 'id' | 'en', fromDate: string, toDate: string) => void;
+  defaultType?: 'standard' | 'donor' | 'ceo';
+  onGeneratePrint: (lang: 'id' | 'en', fromDate: string, toDate: string, type: 'standard' | 'donor' | 'ceo') => void;
 }
 
-export const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onGeneratePrint }) => {
+export const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, defaultType, onGeneratePrint }) => {
   const [preset, setPreset] = useState<'month' | 'quarter' | 'year' | 'custom'>('month');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [reportType, setReportType] = useState<'standard' | 'donor' | 'ceo'>('standard');
 
   useEffect(() => {
     if (isOpen) {
+      if (defaultType) {
+        setReportType(defaultType);
+      }
       const today = new Date();
       setToDate(today.toISOString().split('T')[0]);
 
@@ -388,24 +393,87 @@ export const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onGener
         setFromDate(lastYear.toISOString().split('T')[0]);
       }
     }
-  }, [isOpen, preset]);
+  }, [isOpen, preset, defaultType]);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl border border-slate-100 max-w-md w-full shadow-xl font-semibold text-slate-600 text-xs">
+      <div className="bg-white rounded-2xl border border-slate-100 max-w-lg w-full shadow-xl font-semibold text-slate-600 text-xs">
         <div className="p-4 border-b border-slate-50 flex items-center justify-between">
           <span className="text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-            🖨️ Generate Laporan Print Proyek
+            🖨️ Ekspor & Cetak Laporan Proyek
           </span>
           <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg cursor-pointer">
             <X className="w-4 h-4 text-slate-400" />
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
-          <div className="space-y-1.5">
+        <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+          {/* TIPE LAPORAN SELECTOR */}
+          <div className="space-y-2">
+            <label className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Format Template Laporan</label>
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                onClick={() => setReportType('standard')}
+                className={`p-3 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-2.5 ${
+                  reportType === 'standard'
+                    ? 'bg-blue-50/50 border-blue-400 text-blue-900 ring-2 ring-blue-50'
+                    : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                }`}
+              >
+                <div className={`p-1.5 rounded-lg shrink-0 ${reportType === 'standard' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-extrabold text-xs">Laporan Monev (Standar)</div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-0.5 leading-relaxed">
+                    Menampilkan rincian teknis lengkap, status aktivitas, dan capaian indikator secara komprehensif.
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setReportType('donor')}
+                className={`p-3 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-2.5 ${
+                  reportType === 'donor'
+                    ? 'bg-purple-50/50 border-purple-400 text-purple-900 ring-2 ring-purple-50'
+                    : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                }`}
+              >
+                <div className={`p-1.5 rounded-lg shrink-0 ${reportType === 'donor' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                  <Award className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-extrabold text-xs">Laporan Khusus Donor & Mitra</div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-0.5 leading-relaxed">
+                    Sangat profesional dan result-oriented. Menyoroti outcomes strategis, target dampak (impact metrics), penyerapan budget donor, dan keberhasilan.
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setReportType('ceo')}
+                className={`p-3 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-2.5 ${
+                  reportType === 'ceo'
+                    ? 'bg-amber-50/50 border-amber-400 text-amber-900 ring-2 ring-amber-50'
+                    : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                }`}
+              >
+                <div className={`p-1.5 rounded-lg shrink-0 ${reportType === 'ceo' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-extrabold text-xs">Laporan Eksekutif CEO / Pimpinan</div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-0.5 leading-relaxed">
+                    Ringkas, padat, dan strategis. Berfokus pada ringkasan KPI, kendala/hambatan kritis yang butuh solusi, serta rencana aksi tindak lanjut.
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 pt-1">
             <label className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Metode Rentang Tanggal</label>
             <div className="grid grid-cols-4 gap-1.5 text-center">
               {['month', 'quarter', 'year', 'custom'].map((item) => (
@@ -414,7 +482,7 @@ export const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onGener
                   onClick={() => setPreset(item as any)}
                   className={`py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-all ${
                     preset === item
-                      ? 'bg-blue-600 border-blue-600 text-white'
+                      ? 'bg-slate-800 border-slate-800 text-white'
                       : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600'
                   }`}
                 >
@@ -429,7 +497,7 @@ export const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onGener
               <label className="text-slate-400 font-bold">Dari Tanggal</label>
               <input
                 type="date"
-                className="w-full bg-slate-50 border border-slate-200 py-1.5 px-3 rounded-lg font-mono text-slate-800 focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-200 py-1.5 px-3 rounded-lg font-mono text-slate-800 focus:outline-none text-[11px]"
                 value={fromDate}
                 disabled={preset !== 'custom'}
                 onChange={(e) => setFromDate(e.target.value)}
@@ -439,7 +507,7 @@ export const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onGener
               <label className="text-slate-400 font-bold">Ke Tanggal</label>
               <input
                 type="date"
-                className="w-full bg-slate-50 border border-slate-200 py-1.5 px-3 rounded-lg font-mono text-slate-800 focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-200 py-1.5 px-3 rounded-lg font-mono text-slate-800 focus:outline-none text-[11px]"
                 value={toDate}
                 disabled={preset !== 'custom'}
                 onChange={(e) => setToDate(e.target.value)}
@@ -447,24 +515,26 @@ export const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onGener
             </div>
           </div>
 
-          <p className="bg-sky-50 border border-sky-100 text-sky-800 text-[11px] p-2.5 rounded-lg leading-relaxed">
-            Laporan ini mencakup seluruh update performance, aktivitas baru dilaporkan, penyerapan budget sementara, dan lesson-learned dalam rentang tanggal yang dipilih.
+          <p className="bg-slate-50 border border-slate-100 text-slate-600 text-[10px] p-3 rounded-xl leading-relaxed">
+            {reportType === 'standard' && 'Laporan ini mencakup seluruh rincian teknis, status aktivitas, penyerapan budget sementara, serta catatan hambatan lengkap.'}
+            {reportType === 'donor' && 'Laporan khusus donor ini dioptimalkan dengan struktur formal yang result-oriented, menonjolkan outcomes utama, total capaian sasaran dampak (impact), serta penyerapan anggaran secara profesional.'}
+            {reportType === 'ceo' && 'Laporan eksekutif ini disusun sangat padat agar pimpinan dapat mendeteksi bottlenecks secara instan, memonitor target KPI utama, serta membaca lesson learned operasional secara ringkas.'}
           </p>
 
           <div className="space-y-2 pt-2 border-t border-slate-50">
-            <label className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Pilih Versi Bahasa</label>
+            <label className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Pilih Bahasa & Unduh PDF</label>
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => onGeneratePrint('id', fromDate, toDate)}
-                className="bg-emerald-600 hover:bg-emerald-700 font-extrabold text-white py-2 rounded-xl text-[10px] cursor-pointer text-center"
+                onClick={() => onGeneratePrint('id', fromDate, toDate, reportType)}
+                className="bg-emerald-600 hover:bg-emerald-700 font-extrabold text-white py-2.5 rounded-xl text-[11px] cursor-pointer text-center shadow-xs flex items-center justify-center gap-1"
               >
                 🇮🇩 Bahasa Indonesia
               </button>
               <button
-                onClick={() => onGeneratePrint('en', fromDate, toDate)}
-                className="bg-blue-600 hover:bg-blue-700 font-extrabold text-white py-2 rounded-xl text-[10px] cursor-pointer text-center"
+                onClick={() => onGeneratePrint('en', fromDate, toDate, reportType)}
+                className="bg-blue-600 hover:bg-blue-700 font-extrabold text-white py-2.5 rounded-xl text-[11px] cursor-pointer text-center shadow-xs flex items-center justify-center gap-1"
               >
-                🇬🇧 English Vers.
+                🇬🇧 English Version
               </button>
             </div>
           </div>
@@ -473,7 +543,7 @@ export const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onGener
         <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-end">
           <button
             onClick={onClose}
-            className="bg-white border border-slate-200 text-slate-500 py-1 px-3 rounded-lg font-bold hover:bg-slate-100 cursor-pointer text-[10px]"
+            className="bg-white border border-slate-200 text-slate-500 py-1.5 px-3 rounded-lg font-bold hover:bg-slate-100 cursor-pointer text-[10px]"
           >
             Tutup
           </button>

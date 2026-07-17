@@ -187,6 +187,7 @@ export default function App() {
   const [activeParentActivityId, setActiveParentActivityId] = useState<string>('');
 
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [printDefaultType, setPrintDefaultType] = useState<'standard' | 'donor' | 'ceo'>('standard');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const [isBenModalOpen, setIsBenModalOpen] = useState(false);
@@ -1240,7 +1241,7 @@ export default function App() {
     setTimeout(() => setSyncToast(''), 3000);
   };
 
-  const handleGeneratePrintOutput = (lang: 'id' | 'en', from: string, to: string) => {
+  const handleGeneratePrintOutput = (lang: 'id' | 'en', from: string, to: string, reportType: 'standard' | 'donor' | 'ceo' = 'standard') => {
     const proj = projects.find((p) => isIdMatch(p.id, selectedProjectId));
     if (!proj) {
       alert(lang === 'id' ? 'Proyek tidak ditemukan.' : 'Project not found.');
@@ -1753,7 +1754,7 @@ export default function App() {
           <td class="ctr"><span style="font-size: 8pt; background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; border-radius: 20px; padding: 2px 8px; font-weight: 700; text-transform: uppercase;">Output</span></td>
           <td class="num font-bold" style="font-weight: 700;">${tg.toLocaleString('id-ID')} <span style="color:#94a3b8; font-size: 8pt; font-weight: 500;">${ind.unit || ''}</span></td>
           <td class="num" style="font-weight: 750;"><strong style="color: ${c}">${a.toLocaleString('id-ID')}</strong> <span style="color:#94a3b8; font-size: 8pt; font-weight: 500;">${ind.unit || ''}</span></td>
-          <td>${pbarHtml(pct, c)}</td>
+          <td class="num" style="color: ${c}; font-weight: 800; font-size: 10pt;">${pct}%</td>
           <td style="font-size: 8.5pt; color: #475569; line-height: 1.4;">
             ${ind.notes ? `
               <div style="font-weight: 500; font-style: italic; color: #334155;">${formatPdfText(ind.notes)}</div>
@@ -1778,15 +1779,16 @@ export default function App() {
               <th class="ctr" style="width: 70px">${L.type}</th>
               <th class="num" style="width: 90px">${L.target}</th>
               <th class="num" style="width: 90px">${L.actual}</th>
-              <th style="width: 100px">${L.pct}</th>
-              <th style="width: 180px">${L.lastNote}</th>
+              <th class="num" style="width: 80px">${L.pct}</th>
+              <th style="width: 280px">${L.lastNote}</th>
             </tr>
           </thead>
           <tbody>${indRowsHtml}</tbody>
           <tfoot>
             <tr>
               <td colspan="5" style="text-align: right; color: #1e459c; font-weight: 800;">${L.avgInd}:</td>
-              <td colspan="2">${pbarHtml(avgInd ?? 0)}</td>
+              <td class="num" style="font-weight: 850; color: #1e459c; font-size: 10.5pt;">${avgInd ?? 0}%</td>
+              <td style="background: #f8fafc;"></td>
             </tr>
           </tfoot>
         </table>
@@ -2034,35 +2036,408 @@ export default function App() {
       `;
     }
 
-    const htmlOutput = `
-      <!DOCTYPE html>
-      <html lang="${isID ? 'id' : 'en'}">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${isID ? 'Laporan Monev' : 'M&E Report'}: ${proj.name}</title>
-        <style>${cssStyle}</style>
-      </head>
-      <body>
-        <div class="no-print print-bar">
-          <button class="btn-print" onclick="window.print()">🖨️ ${isID ? 'Cetak / Simpan PDF' : 'Print / Save PDF'}</button>
-          <button class="btn-close" onclick="window.close()">✕ ${isID ? 'Tutup' : 'Close'}</button>
+    // CONDITIONAL HTML GENERATION BASED ON REPORT TYPE
+    let htmlOutput = '';
+
+    if (reportType === 'donor') {
+      // DONOR REPORT TEMPLATE
+      const donorCoverHeader = `
+        <div class="cover-header avoid-break" style="background: linear-gradient(135deg, #1e1b4b 0%, #311053 55%, #4c1d95 100%);">
+          <div class="cover-org-badge" style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.25);">🤝 ${isID ? 'DFW Indonesia — Kemitraan & Akuntabilitas Dampak' : 'DFW Indonesia — Partnership & Impact Report'}</div>
+          <div class="cover-type" style="color: #c084fc; letter-spacing: 2px;">${isID ? 'LAPORAN CAPAIAN PROGRAM & DAMPAK' : 'PARTNERSHIP & OUTCOME ACHIEVEMENT REPORT'}</div>
+          <div class="cover-period-badge" style="background: rgba(192,132,252,0.15); border-color: rgba(192,132,252,0.3); color: #e9d5ff;">📅 ${periodLabel}</div>
+          <div class="cover-title" style="font-size: 20pt; line-height: 1.3;">${proj.name}</div>
+          <div class="cover-meta-grid" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.04);">
+            ${proj.donor ? `<div class="cover-meta-item"><span class="cover-meta-label" style="color: #d8b4fe;">${isID ? 'Mitra Pembangunan' : 'Development Partner'}</span><span class="cover-meta-value" style="color: #fff; font-size: 10.5pt; font-weight: 800;">${proj.donor}</span></div>` : ''}
+            ${proj.location ? `<div class="cover-meta-item"><span class="cover-meta-label" style="color: #d8b4fe;">${L.location}</span><span class="cover-meta-value" style="color: #fff;">${proj.location}</span></div>` : ''}
+            ${proj.startDate ? `<div class="cover-meta-item"><span class="cover-meta-label" style="color: #d8b4fe;">${L.start}</span><span class="cover-meta-value" style="color: #fff;">${_rptDate(proj.startDate)}</span></div>` : ''}
+            ${proj.deadline ? `<div class="cover-meta-item"><span class="cover-meta-label" style="color: #d8b4fe;">${L.deadline}</span><span class="cover-meta-value" style="color: #fff;">${_rptDate(proj.deadline)}</span></div>` : ''}
+            <div class="cover-meta-item"><span class="cover-meta-label" style="color: #d8b4fe;">${isID ? 'Status Keberlangsungan' : 'Project Status'}</span><span class="cover-meta-value" style="color: #fff;">${proj.status || '—'}</span></div>
+            <div class="cover-meta-item"><span class="cover-meta-label" style="color: #d8b4fe;">${isID ? 'Penanggung Jawab' : 'Lead Implementer'}</span><span class="cover-meta-value" style="color: #fff;">${proj.owner || '—'}</span></div>
+          </div>
+          <div class="cover-footer" style="border-top-color: rgba(255,255,255,0.1); margin-top: 20px;">
+            <span>${L.printedOn}: ${new Date().toLocaleString(isID ? 'id-ID' : 'en-GB')}</span>
+            <span style="font-size: 15pt; font-weight: 950; color: #f5f3ff;">${overall}% <span style="font-size: 8.5pt; color: #d8b4fe; font-weight: 700;">${isID ? 'CAPAIAN TARGET' : 'TARGET ACHIEVED'}</span></span>
+          </div>
         </div>
-        <div class="page">
-          ${coverPageHtml}
-          ${statsSectionHtml}
-          ${goalsSectionHtml}
-          ${indicatorsSectionHtml}
-          ${activitiesSectionHtml}
-          ${challengesSectionHtml}
-          ${reflectionsSectionHtml}
-          ${budgetSectionHtml}
-          ${impactSectionHtml}
-          ${footerHtml}
+      `;
+
+      const donorIntroCard = `
+        <div class="section-card avoid-break" style="border-left: 4px solid #a855f7; background: #faf5ff;">
+          <div style="font-weight: 800; font-size: 9.5pt; color: #7e22ce; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+            ✉️ ${isID ? 'PENGANTAR MITRA PEMBANGUNAN' : 'DEVELOPMENT PARTNER GREETING'}
+          </div>
+          <div style="font-size: 9pt; color: #581c87; line-height: 1.6; font-weight: 500;">
+            ${isID
+              ? `Laporan kemajuan ini didedikasikan secara khusus kepada mitra pembangunan kami, <strong>${proj.donor || 'Mitra Pembangunan DFW'}</strong>, sebagai bentuk akuntabilitas profesional atas kontribusi, kepercayaan, dan kolaborasi strategis dalam pelaksanaan program. Seluruh indikator kinerja utama, capaian dampak sosial, serta efektivitas pengelolaan anggaran disajikan di bawah ini guna memberikan gambaran komprehensif atas dampak riil yang telah kita perjuangkan bersama di lapangan.`
+              : `This progress report is specially dedicated to our development partner, <strong>${proj.donor || 'DFW Development Partner'}</strong>, as a measure of professional accountability for your contribution, trust, and strategic collaboration in program execution. All key performance indicators, social impact achievements, and budget stewardship details are detailed below to provide a comprehensive view of the real-world impact achieved through our joint efforts.`
+            }
+          </div>
         </div>
-      </body>
-      </html>
-    `;
+      `;
+
+      // Filter success reflections for donor
+      const successReflections = projectReflectionsInRange.filter(r => r.type === 'success');
+      const donorSuccessHtml = successReflections.length > 0 ? `
+        <div class="section-card avoid-break">
+          ${secHead('✨', isID ? 'CERITA KEBERHASILAN & DAMPAK' : 'SUCCESS STORIES & HIGHLIGHTS', '#16a34a')}
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            ${successReflections.map(ref => `
+              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 14px;">
+                <strong style="color: #14532d; font-size: 10pt; display: block; margin-bottom: 4px;">🌟 ${ref.title}</strong>
+                <div style="font-size: 9pt; color: #166534; line-height: 1.5; font-weight: 500;">${formatPdfText(ref.lesson)}</div>
+                ${ref.whatHappened ? `<div style="font-size: 8.5pt; color: #1e3a8a; margin-top: 6px; font-style: italic;"><strong>Konteks Lapangan:</strong> ${ref.whatHappened}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : '';
+
+      htmlOutput = `
+        <!DOCTYPE html>
+        <html lang="${isID ? 'id' : 'en'}">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${isID ? 'Laporan Kemitraan' : 'Partnership Report'}: ${proj.name}</title>
+          <style>${cssStyle}</style>
+        </head>
+        <body>
+          <div class="no-print print-bar">
+            <button class="btn-print" onclick="window.print()">🖨️ ${isID ? 'Cetak / Simpan PDF' : 'Print / Save PDF'}</button>
+            <button class="btn-close" onclick="window.close()">✕ ${isID ? 'Tutup' : 'Close'}</button>
+          </div>
+          <div class="page">
+            ${donorCoverHeader}
+            ${donorIntroCard}
+            
+            <!-- IMPACT SECTION FIRST FOR DONORS -->
+            ${impactSectionHtml ? `
+              <div class="section-card avoid-break">
+                ${secHead('🌟', isID ? 'SASARAN CAPAIAN DAMPAK PROGRAM' : 'PROGRAM BENEFICIARY & SOCIAL IMPACT', '#16a34a')}
+                <p style="font-size: 9pt; color: #475569; margin-bottom: 12px; font-style: italic; font-weight: 500;">
+                  ${isID ? 'Rangkuman kuantitatif dampak sosial dan jumlah penerima manfaat riil yang berhasil dijangkau.' : 'Quantitative summary of social impact and physical beneficiaries successfully reached.'}
+                </p>
+                <div class="impact-chips">${impByUnitHtml}</div>
+              </div>
+            ` : ''}
+
+            ${goalsSectionHtml}
+            ${indicatorsSectionHtml}
+            ${donorSuccessHtml}
+            ${budgetSectionHtml}
+            
+            <!-- Reflections section -->
+            ${projectReflectionsInRange.filter(r => r.type !== 'success').length > 0 ? `
+              <div class="section-card avoid-break">
+                ${secHead('💡', isID ? 'REFLEKSI & CATATAN PEMBELAJARAN' : 'IMPLEMENTATION LEARNINGS & REFLECTION', '#3b82f6')}
+                <div class="rtl-list">
+                  ${projectReflectionsInRange.filter(r => r.type !== 'success').map(ref => {
+                    let typeLabel = ref.type === 'challenge' ? (isID ? 'Tantangan' : 'Challenge') : (isID ? 'Rekomendasi' : 'Recommendation');
+                    let typeColor = ref.type === 'challenge' ? '#f59e0b' : '#7c3aed';
+                    return `
+                      <div class="rtl-card" style="border-left-color: ${typeColor}; background: ${typeColor}04; border-color: ${typeColor}15; border-radius: 10px; margin-bottom: 10px;">
+                        <strong style="color: ${typeColor}; font-size: 9.5pt; display: flex; items-center: gap-4px;">
+                          <span style="background: ${typeColor}15; color: ${typeColor}; font-size: 8pt; padding: 1px 6px; border-radius: 4px; margin-right: 6px;">${typeLabel}</span>
+                          ${ref.title || 'Refleksi'}
+                        </strong>
+                        <div style="font-size: 9pt; color: #1e293b; line-height: 1.45; margin-top: 6px; font-weight: 500;">${formatPdfText(ref.lesson)}</div>
+                        ${ref.nextSteps ? `<div style="font-size: 8.5pt; background: #f0f9ff; border: 1px solid #bae6fd; padding: 6px 10px; border-radius: 6px; margin-top: 6px; color: #0369a1;"><strong>Rencana Tindak Lanjut:</strong> ${ref.nextSteps}</div>` : ''}
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${footerHtml}
+          </div>
+        </body>
+        </html>
+      `;
+    } else if (reportType === 'ceo') {
+      // CEO/EXECUTIVE BRIEFING REPORT TEMPLATE
+      const ceoCoverHeader = `
+        <div class="cover-header avoid-break" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 65%, #dc2626 150%);">
+          <div class="cover-org-badge" style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.25);">📊 ${isID ? 'DFW Indonesia — Laporan Ringkas Pimpinan' : 'DFW Indonesia — CEO Executive Status Brief'}</div>
+          <div class="cover-type" style="color: #fca5a5; letter-spacing: 2px;">${isID ? 'LAPORAN STATUS EKSEKUTIF (CEO BRIEF)' : 'EXECUTIVE EXCEPTION & STATUS BRIEFING'}</div>
+          <div class="cover-period-badge" style="background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: #fecaca;">📅 ${periodLabel}</div>
+          <div class="cover-title" style="font-size: 20pt; line-height: 1.3;">${proj.name}</div>
+          <div class="cover-meta-grid" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.04); grid-template-columns: repeat(3, 1fr);">
+            <div class="cover-meta-item"><span class="cover-meta-label" style="color: #fca5a5;">${isID ? 'Penanggung Jawab' : 'Lead PIC'}</span><span class="cover-meta-value" style="color: #fff; font-weight:700;">${proj.owner || '—'}</span></div>
+            <div class="cover-meta-item"><span class="cover-meta-label" style="color: #fca5a5;">${L.donor}</span><span class="cover-meta-value" style="color: #fff;">${proj.donor || '—'}</span></div>
+            <div class="cover-meta-item"><span class="cover-meta-label" style="color: #fca5a5;">${L.deadline}</span><span class="cover-meta-value" style="color: #fff; font-family: monospace;">${proj.deadline || '—'}</span></div>
+          </div>
+          <div class="cover-footer" style="border-top-color: rgba(255,255,255,0.1); margin-top: 20px;">
+            <span>${L.printedOn}: ${new Date().toLocaleString(isID ? 'id-ID' : 'en-GB')}</span>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <span style="font-size: 9pt; opacity: .8;">${isID ? 'Budget Burn:' : 'Budget Burn:'} <strong style="color: #fca5a5;">${budPct}%</strong></span>
+              <span style="font-size: 14pt; font-weight: 950; color: #fee2e2;">${overall}% <span style="font-size: 8pt; color: #fca5a5; font-weight: 700;">${isID ? 'KEMAJUAN' : 'PROGRESS'}</span></span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Calculate critical delayed activities
+      const delayedActivities = rangedActivities.filter(a => a.status === 'Terlambat' || (a.status !== 'Selesai' && a.dueDate && new Date(a.dueDate).getTime() < new Date().getTime()));
+      
+      const ceoExceptionsCard = `
+        <div class="section-card avoid-break" style="border-left: 4px solid #dc2626; background: #fef2f2;">
+          <div style="font-weight: 850; font-size: 10pt; color: #991b1b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+            🚨 ${isID ? 'BOTTLE-NECKS & STATUS KRITIS' : 'CRITICAL BOTTLENECK & EXCEPTION ITEMS'}
+            <span style="background: #fee2e2; color: #b91c1c; font-size: 8pt; padding: 1px 8px; border-radius: 12px; font-weight: 800;">${delayedActivities.length} Terdeteksi</span>
+          </div>
+          <div style="font-size: 9pt; color: #7f1d1d; line-height: 1.5; font-weight: 500;">
+            ${delayedActivities.length > 0 
+              ? (isID 
+                ? `Berikut adalah daftar aktivitas yang terlambat melewati tenggat waktu (deadline) atau mengalami hambatan operasional kritis di lapangan yang membutuhkan atensi khusus pimpinan:` 
+                : `The following implementation activities have exceeded their due dates or encountered critical operational barriers requiring management attention:`)
+              : (isID 
+                ? `Seluruh aktivitas berjalan lancar dan tidak ada keterlambatan kritis terdeteksi dalam periode ini.` 
+                : `All project implementation channels are operating within safe bounds. No critical delays or bottlenecks detected in this period.`)
+            }
+          </div>
+          ${delayedActivities.length > 0 ? `
+            <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">
+              ${delayedActivities.map(act => `
+                <div style="background: #fff; border: 1px solid #fee2e2; border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                  <div>
+                    <strong style="color: #991b1b; font-size: 9pt; display: block;">⚠️ ${act.title}</strong>
+                    <span style="color: #475569; font-size: 8pt; font-weight: 700;">PIC: ${act.pic || '—'} · Tenggat: <span style="font-family: monospace;">${_rptDate(act.dueDate)}</span></span>
+                  </div>
+                  <div style="font-size: 8.5pt; font-weight: 800; background: #fee2e2; color: #b91c1c; padding: 2px 10px; border-radius: 12px;">
+                    Progress: ${act.progress || 0}%
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      // Extract recommended decision from reflections
+      const recommendationReflections = projectReflectionsInRange.filter(r => r.type === 'recommendation' || r.type === 'challenge');
+      const ceoActionsCard = recommendationReflections.length > 0 ? `
+        <div class="section-card avoid-break">
+          ${secHead('📌', isID ? 'REKOMENDASI KEPUTUSAN & TINDAK LANJUT' : 'RECOMMENDED ACTION ITEMS & DECISIONS', '#7c3aed')}
+          <p style="font-size: 8.5pt; color: #64748b; margin-bottom: 12px; font-style: italic; font-weight: 500;">
+            ${isID ? 'Rekomendasi strategis dan rencana tindak lanjut operasional yang diusulkan oleh tim pelaksana di lapangan:' : 'Strategic operational recommendations and proposed next steps compiled from implementation reflections:'}
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${recommendationReflections.map(ref => `
+              <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 10px 12px;">
+                <strong style="color: #5b21b6; font-size: 9pt; display: block; margin-bottom: 4px;">🎯 ${ref.title}</strong>
+                <div style="font-size: 8.5pt; color: #1e293b; font-weight: 500; line-height: 1.4;">${formatPdfText(ref.lesson)}</div>
+                ${ref.nextSteps ? `<div style="font-size: 8pt; color: #6d28d9; margin-top: 6px; border-top: 1px dashed #ddd6fe; padding-top: 4px;"><strong>Rencana Tindak Lanjut:</strong> ${ref.nextSteps}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : '';
+
+      // Calculate Staff Workloads for this specific project and range
+      const rangedActivityIds = rangedActivities.map((a) => a.id);
+      const rangedSubActivities = subActivities.filter((sub) => rangedActivityIds.includes(sub.parentActivityId));
+
+      const projectStaffWorkloads = staff.map((st) => {
+        const isPicMatch = (picName?: string) => {
+          if (!picName) return false;
+          return picName.toLowerCase().trim() === st.name.toLowerCase().trim();
+        };
+
+        const stActs = rangedActivities.filter((a) => isPicMatch(a.pic));
+        const stSubActs = rangedSubActivities.filter((s) => isPicMatch(s.pic));
+
+        const completed = stActs.filter((a) => a.status === 'Selesai').length +
+                          stSubActs.filter((s) => s.status === 'Selesai').length;
+
+        const running = stActs.filter((a) => a.status === 'Sedang Berjalan' || a.status === 'Sedang Berjalan').length +
+                        stSubActs.filter((s) => s.status === 'Sedang Dikerjakan').length;
+
+        const delayed = stActs.filter((a) => a.status === 'Tertunda' || a.status === 'Terlambat').length +
+                        stSubActs.filter((s) => s.status === 'Tertunda').length;
+
+        const notStarted = stActs.filter((a) => a.status === 'Belum Mulai').length +
+                           stSubActs.filter((s) => s.status === 'Belum Mulai').length;
+
+        const total = completed + running + delayed + notStarted;
+
+        // Overdues
+        const actsOverdues = stActs.filter((a) => {
+          if (a.status === 'Tertunda' || a.status === 'Terlambat') return true;
+          if (a.status !== 'Selesai' && a.dueDate) {
+            const due = new Date(a.dueDate).getTime();
+            const now = new Date().getTime();
+            return due < now;
+          }
+          return false;
+        }).length;
+
+        const subActsOverdues = stSubActs.filter((s) => {
+          if (s.status === 'Tertunda') return true;
+          if (s.status !== 'Selesai' && s.due) {
+            const due = new Date(s.due).getTime();
+            const now = new Date().getTime();
+            return due < now;
+          }
+          return false;
+        }).length;
+
+        const overdues = actsOverdues + subActsOverdues;
+
+        return {
+          ...st,
+          total,
+          completed,
+          running,
+          delayed,
+          notStarted,
+          overdues,
+        };
+      }).filter((sw) => sw.total > 0)
+        .sort((a, b) => b.total - a.total);
+
+      const staffWorkloadHtml = projectStaffWorkloads.length > 0 ? `
+        <div class="section-card avoid-break">
+          ${secHead('👥', isID ? 'ANALISIS BEBAN KERJA & KINERJA TIM' : 'TEAM WORKLOAD & PERFORMANCE ANALYTICS', '#4f46e5')}
+          <p style="font-size: 8.5pt; color: #64748b; margin-bottom: 12px; font-style: italic; font-weight: 500;">
+            ${isID ? 'Distribusi beban kerja (aktivitas & sub-aktivitas) beserta tingkat penyelesaian dan item kritis per personel dalam proyek ini.' : 'Workload distribution (activities & sub-activities) with completion rates and overdue items per personnel.'}
+          </p>
+          <table class="tbl" style="font-size: 9pt;">
+            <thead>
+              <tr>
+                <th style="width: 30%">${isID ? 'Nama Staf' : 'Staff Name'}</th>
+                <th style="width: 25%">${isID ? 'Peran / Jabatan' : 'Role'}</th>
+                <th class="num" style="width: 11%">${isID ? 'Total' : 'Total'}</th>
+                <th class="num" style="width: 11%">${isID ? 'Selesai' : 'Done'}</th>
+                <th class="num" style="width: 11%">${isID ? 'Berjalan' : 'Active'}</th>
+                <th class="num" style="width: 12%; color: #b91c1c;">${isID ? 'Keterlambatan' : 'Overdue'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${projectStaffWorkloads.map(sw => {
+                const overdueBadge = sw.overdues > 0 
+                  ? `<span style="background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 8pt; display: inline-block;">⚠️ ${sw.overdues} Item</span>`
+                  : `<span style="color: #64748b; font-weight: 500;">—</span>`;
+                return `
+                  <tr>
+                    <td><strong>${sw.name}</strong></td>
+                    <td style="color: #475569;">${sw.role || 'Pelaksana'}</td>
+                    <td class="num" style="font-weight: 700; color: #1e293b;">${sw.total}</td>
+                    <td class="num" style="color: #166534; font-weight: 700;">${sw.completed}</td>
+                    <td class="num" style="color: #2563eb; font-weight: 700;">${sw.running}</td>
+                    <td class="num">${overdueBadge}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : `
+        <div class="section-card avoid-break">
+          ${secHead('👥', isID ? 'ANALISIS BEBAN KERJA & KINERJA TIM' : 'TEAM WORKLOAD & PERFORMANCE ANALYTICS', '#4f46e5')}
+          <div style="font-size: 9pt; color: #64748b; font-style: italic; text-align: center; padding: 15px 0;">
+            ${isID ? 'Belum ada staf pelaksana yang ditugaskan ke aktivitas aktif pada periode ini.' : 'No staff members are currently assigned to active activities in this period.'}
+          </div>
+        </div>
+      `;
+
+      htmlOutput = `
+        <!DOCTYPE html>
+        <html lang="${isID ? 'id' : 'en'}">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${isID ? 'Briefing Eksekutif' : 'Executive Status Brief'}: ${proj.name}</title>
+          <style>${cssStyle}</style>
+        </head>
+        <body>
+          <div class="no-print print-bar">
+            <button class="btn-print" onclick="window.print()">🖨️ ${isID ? 'Cetak / Simpan PDF' : 'Print / Save PDF'}</button>
+            <button class="btn-close" onclick="window.close()">✕ ${isID ? 'Tutup' : 'Close'}</button>
+          </div>
+          <div class="page">
+            ${ceoCoverHeader}
+            
+            <!-- EXECUTIVES WANT STATS FIRST -->
+            ${statsSectionHtml}
+            ${ceoExceptionsCard}
+            
+            <!-- COMPACT INDICATORS METRIC -->
+            ${projectIndicators.length > 0 ? `
+              <div class="section-card avoid-break">
+                ${secHead('📊', isID ? 'KEMAJUAN TARGET INDIKATOR UTAMA' : 'KEY INDICATOR PERFORMANCE DASHBOARD', '#2563eb')}
+                <table class="tbl" style="font-size: 9pt;">
+                  <thead>
+                    <tr>
+                      <th style="width: 40%">Nama Indikator</th>
+                      <th class="num" style="width: 20%">Target</th>
+                      <th class="num" style="width: 20%">Realisasi</th>
+                      <th class="num" style="width: 20%">Capaian %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${projectIndicators.map(ind => {
+                      const a = ind.current || 0;
+                      const tg = ind.target || 0;
+                      const pct = tg > 0 ? Math.min(Math.round((a / tg) * 100), 999) : 0;
+                      const c = _pctColor(pct);
+                      return `
+                        <tr>
+                          <td><strong>${ind.title}</strong></td>
+                          <td class="num">${tg.toLocaleString('id-ID')} <span style="font-size: 7.5pt; color: #64748b;">${ind.unit || ''}</span></td>
+                          <td class="num" style="color: ${c}; font-weight: 700;">${a.toLocaleString('id-ID')}</td>
+                          <td class="num" style="color: ${c}; font-weight: 800; font-size: 10pt;">${pct}%</td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+
+            <!-- STAFF WORKLOAD SECTION -->
+            ${staffWorkloadHtml}
+
+            ${ceoActionsCard}
+            ${budgetSectionHtml}
+            ${footerHtml}
+          </div>
+        </body>
+        </html>
+      `;
+    } else {
+      // STANDARD MONEV REPORT TEMPLATE (Existing Standard Output)
+      htmlOutput = `
+        <!DOCTYPE html>
+        <html lang="${isID ? 'id' : 'en'}">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${isID ? 'Laporan Monev' : 'M&E Report'}: ${proj.name}</title>
+          <style>${cssStyle}</style>
+        </head>
+        <body>
+          <div class="no-print print-bar">
+            <button class="btn-print" onclick="window.print()">🖨️ ${isID ? 'Cetak / Simpan PDF' : 'Print / Save PDF'}</button>
+            <button class="btn-close" onclick="window.close()">✕ ${isID ? 'Tutup' : 'Close'}</button>
+          </div>
+          <div class="page">
+            ${coverPageHtml}
+            ${statsSectionHtml}
+            ${goalsSectionHtml}
+            ${indicatorsSectionHtml}
+            ${activitiesSectionHtml}
+            ${challengesSectionHtml}
+            ${reflectionsSectionHtml}
+            ${budgetSectionHtml}
+            ${impactSectionHtml}
+            ${footerHtml}
+          </div>
+        </body>
+        </html>
+      `;
+    }
 
     // Open target print view tab/window
     const printWindow = window.open('', '_blank', 'width=1100,height=900,scrollbars=yes,resizable=yes');
@@ -2268,8 +2643,11 @@ export default function App() {
               <span>🟢</span> Realtime Database ON
             </span>
             <button
-              onClick={() => setIsPrintModalOpen(true)}
-              className="p-1 px-3.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer h-8"
+              onClick={() => {
+                setPrintDefaultType('standard');
+                setIsPrintModalOpen(true);
+              }}
+              className="p-1 px-3.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer h-8 shadow-xs"
             >
               <Printer className="w-3.5 h-3.5" /> PDF
             </button>
@@ -2378,6 +2756,14 @@ export default function App() {
                   }}
                   onAddReflection={handleAddReflectionInline}
                   onDeleteReflection={handleDeleteReflectionInline}
+                  onPrintDonorReport={() => {
+                    setPrintDefaultType('donor');
+                    setIsPrintModalOpen(true);
+                  }}
+                  onPrintCeoReport={() => {
+                    setPrintDefaultType('ceo');
+                    setIsPrintModalOpen(true);
+                  }}
                 />
               );
             })()
@@ -3553,6 +3939,7 @@ ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_
       <PrintModal
         isOpen={isPrintModalOpen}
         onClose={() => setIsPrintModalOpen(false)}
+        defaultType={printDefaultType}
         onGeneratePrint={handleGeneratePrintOutput}
       />
 

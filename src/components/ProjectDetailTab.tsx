@@ -55,6 +55,8 @@ interface ProjectDetailTabProps {
   onAddReflection: (reflection: Partial<ProjectReflection>) => void;
   onDeleteReflection: (refId: string) => void;
   onSaveIndicatorPirs?: (indicatorId: string, description: string) => void;
+  onPrintDonorReport?: () => void;
+  onPrintCeoReport?: () => void;
 }
 
 export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
@@ -78,6 +80,8 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
   onAddReflection,
   onDeleteReflection,
   onSaveIndicatorPirs,
+  onPrintDonorReport,
+  onPrintCeoReport,
 }) => {
   // PIRS page state
   const [showPirs, setShowPirs] = useState(false);
@@ -308,16 +312,28 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto shrink-0">
             <button
               onClick={() => setShowPirs(true)}
-              className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-blue-200 transition-all cursor-pointer flex items-center gap-1.5"
+              className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-blue-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
             >
               <FileText className="w-3.5 h-3.5" /> PIRS Indikator
             </button>
             <button
+              onClick={onPrintDonorReport}
+              className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-purple-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+            >
+              <Award className="w-3.5 h-3.5" /> Laporan Donor
+            </button>
+            <button
+              onClick={onPrintCeoReport}
+              className="bg-amber-50 hover:bg-amber-100 text-amber-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-amber-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+            >
+              <TrendingUp className="w-3.5 h-3.5" /> Laporan CEO
+            </button>
+            <button
               onClick={() => onEditProjectClick(project.id)}
-              className="bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-slate-200 transition-all cursor-pointer flex items-center gap-1"
+              className="bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-slate-200 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
             >
               <Edit className="w-3.5 h-3.5" /> Edit Proyek
             </button>
