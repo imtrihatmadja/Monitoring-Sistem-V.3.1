@@ -1319,16 +1319,32 @@ export default function App() {
     // 1. Filter Indicators
     const projectIndicators = indicators.filter((i) => isIdMatch(i.projectId, proj.id));
 
-    // 2. Filter Activities
+    // 2. Filter Activities and Sub-Activities based on due dates within range
     const projectActivities = activities.filter((a) => isIdMatch(a.projectId, proj.id));
-    
-    // Filtered by range: we consider it in range if start date <= to and due date >= from
+    const projectActivityIds = projectActivities.map((a) => a.id);
+    const projectSubActivities = subActivities.filter((sub) => projectActivityIds.includes(sub.parentActivityId));
+
+    const rangedSubActivities = projectSubActivities.filter((sub) => {
+      if (!fromMs || !toMs) return true;
+      if (!sub.due) return false;
+      const dTime = new Date(sub.due + 'T00:00:00').getTime();
+      return dTime >= fromMs && dTime <= toMs;
+    });
+
     const rangedActivities = projectActivities.filter((act) => {
       if (!fromMs || !toMs) return true;
-      const sd = act.startDate ? new Date(act.startDate + 'T00:00:00').getTime() : null;
-      const dd = act.dueDate ? new Date(act.dueDate + 'T23:59:59').getTime() : null;
-      const inRange = !sd || (sd <= toMs && (!dd || dd >= fromMs));
-      return inRange;
+      
+      // Check if activity itself is in range
+      let actInRange = false;
+      if (act.dueDate) {
+        const dTime = new Date(act.dueDate + 'T00:00:00').getTime();
+        actInRange = dTime >= fromMs && dTime <= toMs;
+      }
+      
+      // Or if it has any sub-activities in range
+      const hasSubInRange = rangedSubActivities.some((sub) => sub.parentActivityId === act.id);
+      
+      return actInRange || hasSubInRange;
     });
 
     // Outcomes
@@ -1808,6 +1824,44 @@ export default function App() {
           `).join('')
         : `<span style="color: #94a3b8; font-size: 8.5pt; font-style: italic;">—</span>`;
 
+      // Nested sub-activities that belong to this activity and are in range
+      const subActsForThisAct = rangedSubActivities.filter(s => s.parentActivityId === act.id);
+      let subActsHtml = '';
+      if (subActsForThisAct.length > 0) {
+        subActsHtml = `
+          <div style="border-left: 3px solid #3b82f6; padding-left: 14px; margin-top: 4px; margin-bottom: 4px;">
+            <div style="font-size: 8pt; font-weight: 800; color: #1e3a8a; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+              <span style="color: #3b82f6;">📌</span> ${isID ? 'Sub-Aktivitas Terjadwal' : 'Scheduled Sub-Activities'} (${subActsForThisAct.length})
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              ${subActsForThisAct.map(sub => {
+                const subColor = _statusColor(sub.status);
+                const formattedDue = sub.due ? new Date(sub.due + 'T00:00:00').toLocaleDateString(isID ? 'id-ID' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+                return `
+                  <div style="font-size: 8.5pt; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.015);">
+                    <div style="flex: 1;">
+                      <div style="font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                        <span style="color: #3b82f6; font-size: 7pt;">■</span> ${sub.title}
+                      </div>
+                      ${sub.desc ? `<div style="font-size: 8pt; color: #64748b; line-height: 1.35; margin-top: 3px; margin-left: 12px;">${sub.desc}</div>` : ''}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 16px; flex-shrink: 0; font-size: 8pt; color: #475569;">
+                      <div style="text-align: right;">
+                        <span style="font-weight: 600; display: block; color: #334155;">👤 ${sub.pic || '—'}</span>
+                        ${formattedDue ? `<span style="font-size: 7.5pt; color: #94a3b8;">📅 ${isID ? 'Tenggat' : 'Due'}: ${formattedDue}</span>` : ''}
+                      </div>
+                      <div style="min-width: 95px; text-align: right;">
+                        ${badge(sub.status, subColor)}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
       return `
         <tr>
           <td class="ctr" style="font-weight: 700; color: #64748b;">${i + 1}</td>
@@ -1820,6 +1874,14 @@ export default function App() {
           <td class="ctr"><strong style="font-size: 10.5pt; color: ${c}; font-weight: 800;">${prog}%</strong></td>
           <td>${notesHtml}</td>
         </tr>
+        ${subActsHtml ? `
+        <tr class="avoid-break" style="background: #fafafa;">
+          <td></td>
+          <td colspan="5" style="padding: 10px 14px 12px 14px; border-top: none; background: #fafafa;">
+            ${subActsHtml}
+          </td>
+        </tr>
+        ` : ''}
       `;
     }).join('');
 
@@ -2036,7 +2098,130 @@ export default function App() {
       `;
     }
 
+    // Calculate Staff Workloads for this specific project and range
+    const projectStaffWorkloads = staff.map((st) => {
+      const isPicMatch = (picName?: string) => {
+        if (!picName) return false;
+        return picName.toLowerCase().trim() === st.name.toLowerCase().trim();
+      };
+
+      const stActs = rangedActivities.filter((a) => isPicMatch(a.pic));
+      const stSubActs = rangedSubActivities.filter((s) => isPicMatch(s.pic));
+
+      const completed = stActs.filter((a) => a.status === 'Selesai').length +
+                        stSubActs.filter((s) => s.status === 'Selesai').length;
+
+      const running = stActs.filter((a) => a.status === 'Sedang Berjalan' || a.status === 'Sedang Berjalan').length +
+                      stSubActs.filter((s) => s.status === 'Sedang Dikerjakan').length;
+
+      const delayed = stActs.filter((a) => a.status === 'Tertunda' || a.status === 'Terlambat').length +
+                      stSubActs.filter((s) => s.status === 'Tertunda').length;
+
+      const notStarted = stActs.filter((a) => a.status === 'Belum Mulai').length +
+                         stSubActs.filter((s) => s.status === 'Belum Mulai').length;
+
+      const total = completed + running + delayed + notStarted;
+
+      // Overdues
+      const actsOverdues = stActs.filter((a) => {
+        if (a.status === 'Tertunda' || a.status === 'Terlambat') return true;
+        if (a.status !== 'Selesai' && a.dueDate) {
+          const due = new Date(a.dueDate).getTime();
+          const now = new Date().getTime();
+          return due < now;
+        }
+        return false;
+      }).length;
+
+      const subActsOverdues = stSubActs.filter((s) => {
+        if (s.status === 'Tertunda') return true;
+        if (s.status !== 'Selesai' && s.due) {
+          const due = new Date(s.due).getTime();
+          const now = new Date().getTime();
+          return due < now;
+        }
+        return false;
+      }).length;
+
+      const overdues = actsOverdues + subActsOverdues;
+
+      return {
+        ...st,
+        total,
+        completed,
+        running,
+        delayed,
+        notStarted,
+        overdues,
+      };
+    }).filter((sw) => sw.total > 0)
+      .sort((a, b) => b.total - a.total);
+
+    const staffWorkloadHtml = projectStaffWorkloads.length > 0 ? `
+      <div class="section-card avoid-break">
+        ${secHead('👥', isID ? 'ANALISIS BEBAN KERJA & KINERJA TIM' : 'TEAM WORKLOAD & PERFORMANCE ANALYTICS', '#4f46e5')}
+        <p style="font-size: 8.5pt; color: #64748b; margin-bottom: 12px; font-style: italic; font-weight: 500;">
+          ${isID ? 'Distribusi beban kerja (aktivitas & sub-aktivitas) beserta tingkat penyelesaian dan item kritis per personel dalam proyek ini.' : 'Workload distribution (activities & sub-activities) with completion rates and overdue items per personnel.'}
+        </p>
+        <table class="tbl" style="font-size: 9pt;">
+          <thead>
+            <tr>
+              <th style="width: 30%">${isID ? 'Nama Staf' : 'Staff Name'}</th>
+              <th style="width: 25%">${isID ? 'Peran / Jabatan' : 'Role'}</th>
+              <th class="num" style="width: 11%">${isID ? 'Total' : 'Total'}</th>
+              <th class="num" style="width: 11%">${isID ? 'Selesai' : 'Done'}</th>
+              <th class="num" style="width: 11%">${isID ? 'Berjalan' : 'Active'}</th>
+              <th class="num" style="width: 12%; color: #b91c1c;">${isID ? 'Keterlambatan' : 'Overdue'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${projectStaffWorkloads.map(sw => {
+              const overdueBadge = sw.overdues > 0 
+                ? `<span style="background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 8pt; display: inline-block;">⚠️ ${sw.overdues} Item</span>`
+                : `<span style="color: #64748b; font-weight: 500;">—</span>`;
+              return `
+                <tr>
+                  <td><strong>${sw.name}</strong></td>
+                  <td style="color: #475569;">${sw.role || 'Pelaksana'}</td>
+                  <td class="num" style="font-weight: 700; color: #1e293b;">${sw.total}</td>
+                  <td class="num" style="color: #166534; font-weight: 700;">${sw.completed}</td>
+                  <td class="num" style="color: #2563eb; font-weight: 700;">${sw.running}</td>
+                  <td class="num">${overdueBadge}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    ` : `
+      <div class="section-card avoid-break">
+        ${secHead('👥', isID ? 'ANALISIS BEBAN KERJA & KINERJA TIM' : 'TEAM WORKLOAD & PERFORMANCE ANALYTICS', '#4f46e5')}
+        <div style="font-size: 9pt; color: #64748b; font-style: italic; text-align: center; padding: 15px 0;">
+          ${isID ? 'Belum ada staf pelaksana yang ditugaskan ke aktivitas aktif pada periode ini.' : 'No staff members are currently assigned to active activities in this period.'}
+        </div>
+      </div>
+    `;
+
     // CONDITIONAL HTML GENERATION BASED ON REPORT TYPE
+    const periodBannerHtml = fromMs && toMs ? `
+      <div class="avoid-break" style="background: #eff6ff; border: 1.5px dashed #3b82f6; border-radius: 12px; padding: 12px 18px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 14pt; background: #3b82f615; color: #2563eb; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">📅</span>
+          <div>
+            <div style="font-size: 7.5pt; font-weight: 800; color: #2563eb; text-transform: uppercase; letter-spacing: 0.5px;">
+              ${isID ? 'Rentang Tanggal Laporan Terfilter' : 'Filtered Report Date Range'}
+            </div>
+            <div style="font-size: 9.5pt; font-weight: 800; color: #1e3b8a;">
+              ${periodLabel}
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 8pt; background: #2563eb; color: #ffffff; font-weight: 700; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 1px 2px rgba(37,99,235,0.15);">
+          ${isID ? 'Rentang Kustom' : 'Custom Range'}
+        </div>
+      </div>
+    ` : '';
+
     let htmlOutput = '';
 
     if (reportType === 'donor') {
@@ -2109,6 +2294,7 @@ export default function App() {
           </div>
           <div class="page">
             ${donorCoverHeader}
+            ${periodBannerHtml}
             ${donorIntroCard}
             
             <!-- IMPACT SECTION FIRST FOR DONORS -->
@@ -2235,113 +2421,6 @@ export default function App() {
         </div>
       ` : '';
 
-      // Calculate Staff Workloads for this specific project and range
-      const rangedActivityIds = rangedActivities.map((a) => a.id);
-      const rangedSubActivities = subActivities.filter((sub) => rangedActivityIds.includes(sub.parentActivityId));
-
-      const projectStaffWorkloads = staff.map((st) => {
-        const isPicMatch = (picName?: string) => {
-          if (!picName) return false;
-          return picName.toLowerCase().trim() === st.name.toLowerCase().trim();
-        };
-
-        const stActs = rangedActivities.filter((a) => isPicMatch(a.pic));
-        const stSubActs = rangedSubActivities.filter((s) => isPicMatch(s.pic));
-
-        const completed = stActs.filter((a) => a.status === 'Selesai').length +
-                          stSubActs.filter((s) => s.status === 'Selesai').length;
-
-        const running = stActs.filter((a) => a.status === 'Sedang Berjalan' || a.status === 'Sedang Berjalan').length +
-                        stSubActs.filter((s) => s.status === 'Sedang Dikerjakan').length;
-
-        const delayed = stActs.filter((a) => a.status === 'Tertunda' || a.status === 'Terlambat').length +
-                        stSubActs.filter((s) => s.status === 'Tertunda').length;
-
-        const notStarted = stActs.filter((a) => a.status === 'Belum Mulai').length +
-                           stSubActs.filter((s) => s.status === 'Belum Mulai').length;
-
-        const total = completed + running + delayed + notStarted;
-
-        // Overdues
-        const actsOverdues = stActs.filter((a) => {
-          if (a.status === 'Tertunda' || a.status === 'Terlambat') return true;
-          if (a.status !== 'Selesai' && a.dueDate) {
-            const due = new Date(a.dueDate).getTime();
-            const now = new Date().getTime();
-            return due < now;
-          }
-          return false;
-        }).length;
-
-        const subActsOverdues = stSubActs.filter((s) => {
-          if (s.status === 'Tertunda') return true;
-          if (s.status !== 'Selesai' && s.due) {
-            const due = new Date(s.due).getTime();
-            const now = new Date().getTime();
-            return due < now;
-          }
-          return false;
-        }).length;
-
-        const overdues = actsOverdues + subActsOverdues;
-
-        return {
-          ...st,
-          total,
-          completed,
-          running,
-          delayed,
-          notStarted,
-          overdues,
-        };
-      }).filter((sw) => sw.total > 0)
-        .sort((a, b) => b.total - a.total);
-
-      const staffWorkloadHtml = projectStaffWorkloads.length > 0 ? `
-        <div class="section-card avoid-break">
-          ${secHead('👥', isID ? 'ANALISIS BEBAN KERJA & KINERJA TIM' : 'TEAM WORKLOAD & PERFORMANCE ANALYTICS', '#4f46e5')}
-          <p style="font-size: 8.5pt; color: #64748b; margin-bottom: 12px; font-style: italic; font-weight: 500;">
-            ${isID ? 'Distribusi beban kerja (aktivitas & sub-aktivitas) beserta tingkat penyelesaian dan item kritis per personel dalam proyek ini.' : 'Workload distribution (activities & sub-activities) with completion rates and overdue items per personnel.'}
-          </p>
-          <table class="tbl" style="font-size: 9pt;">
-            <thead>
-              <tr>
-                <th style="width: 30%">${isID ? 'Nama Staf' : 'Staff Name'}</th>
-                <th style="width: 25%">${isID ? 'Peran / Jabatan' : 'Role'}</th>
-                <th class="num" style="width: 11%">${isID ? 'Total' : 'Total'}</th>
-                <th class="num" style="width: 11%">${isID ? 'Selesai' : 'Done'}</th>
-                <th class="num" style="width: 11%">${isID ? 'Berjalan' : 'Active'}</th>
-                <th class="num" style="width: 12%; color: #b91c1c;">${isID ? 'Keterlambatan' : 'Overdue'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${projectStaffWorkloads.map(sw => {
-                const overdueBadge = sw.overdues > 0 
-                  ? `<span style="background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 8pt; display: inline-block;">⚠️ ${sw.overdues} Item</span>`
-                  : `<span style="color: #64748b; font-weight: 500;">—</span>`;
-                return `
-                  <tr>
-                    <td><strong>${sw.name}</strong></td>
-                    <td style="color: #475569;">${sw.role || 'Pelaksana'}</td>
-                    <td class="num" style="font-weight: 700; color: #1e293b;">${sw.total}</td>
-                    <td class="num" style="color: #166534; font-weight: 700;">${sw.completed}</td>
-                    <td class="num" style="color: #2563eb; font-weight: 700;">${sw.running}</td>
-                    <td class="num">${overdueBadge}</td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-      ` : `
-        <div class="section-card avoid-break">
-          ${secHead('👥', isID ? 'ANALISIS BEBAN KERJA & KINERJA TIM' : 'TEAM WORKLOAD & PERFORMANCE ANALYTICS', '#4f46e5')}
-          <div style="font-size: 9pt; color: #64748b; font-style: italic; text-align: center; padding: 15px 0;">
-            ${isID ? 'Belum ada staf pelaksana yang ditugaskan ke aktivitas aktif pada periode ini.' : 'No staff members are currently assigned to active activities in this period.'}
-          </div>
-        </div>
-      `;
-
       htmlOutput = `
         <!DOCTYPE html>
         <html lang="${isID ? 'id' : 'en'}">
@@ -2358,6 +2437,7 @@ export default function App() {
           </div>
           <div class="page">
             ${ceoCoverHeader}
+            ${periodBannerHtml}
             
             <!-- EXECUTIVES WANT STATS FIRST -->
             ${statsSectionHtml}
@@ -2424,10 +2504,12 @@ export default function App() {
           </div>
           <div class="page">
             ${coverPageHtml}
+            ${periodBannerHtml}
             ${statsSectionHtml}
             ${goalsSectionHtml}
             ${indicatorsSectionHtml}
             ${activitiesSectionHtml}
+            ${staffWorkloadHtml}
             ${challengesSectionHtml}
             ${reflectionsSectionHtml}
             ${budgetSectionHtml}
