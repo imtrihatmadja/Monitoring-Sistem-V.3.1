@@ -91,10 +91,13 @@ ADD COLUMN IF NOT EXISTS notes TEXT;
 
 
 -- ==========================================
--- 5. FIX TABLE: project_sub_activities (FOREIGN KEY CONSTRAINT)
+-- 5. FIX TABLE: project_sub_activities (FOREIGN KEY CONSTRAINT & NOTES COLUMN)
 -- ==========================================
--- Masalah: insert/update melanggar foreign key constraint "project_sub_activities_parent_activity_id_fkey".
--- Solusi: Kita buat relasi FK menjadi 'NOT VALID' sehingga data CSV lama/tidak berpasangan tetap bisa diimpor tanpa error 23503.
+-- Masalah: insert/update melanggar foreign key constraint "project_sub_activities_parent_activity_id_fkey", dan kolom "notes" untuk catatan perkembangan sub-aktivitas tidak ada.
+-- Solusi: Kita buat relasi FK menjadi 'NOT VALID' dan tambahkan kolom notes bertipe JSONB.
+ALTER TABLE project_sub_activities 
+ADD COLUMN IF NOT EXISTS notes JSONB DEFAULT '[]'::jsonb;
+
 ALTER TABLE project_sub_activities 
 DROP CONSTRAINT IF EXISTS project_sub_activities_parent_activity_id_fkey;
 

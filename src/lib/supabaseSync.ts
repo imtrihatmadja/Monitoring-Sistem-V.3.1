@@ -38,7 +38,7 @@ const fallbackSchemaColumns: Record<string, string[]> = {
     'drive_file_id', 'drive_folder_id', 'web_view_link', 'description', 'created_at'
   ],
   project_sub_activities: [
-    'id', 'parent_activity_id', 'title', 'desc', 'pic', 'status', 'priority', 'due'
+    'id', 'parent_activity_id', 'title', 'desc', 'pic', 'status', 'priority', 'due', 'notes'
   ]
 };
 
@@ -339,9 +339,18 @@ function fromDbRow<T>(row: any): T {
     
     let val = row[key];
     if (typeof val === 'string') {
-      const lower = val.trim().toLowerCase();
-      if (uuidToOriginalMap[lower]) {
-        val = uuidToOriginalMap[lower];
+      const trimmed = val.trim();
+      if ((key === 'notes' || key === 'files' || key === 'updates' || key === 'registrations') && (trimmed.startsWith('[') || trimmed.startsWith('{'))) {
+        try {
+          val = JSON.parse(trimmed);
+        } catch {
+          // fallback
+        }
+      } else {
+        const lower = trimmed.toLowerCase();
+        if (uuidToOriginalMap[lower]) {
+          val = uuidToOriginalMap[lower];
+        }
       }
     }
     
@@ -608,6 +617,7 @@ function mapSubActivityToDb(subAct: SubActivity) {
   row.status = subAct.status || 'Belum Mulai';
   row.priority = subAct.priority || 'Normal';
   row.due = subAct.due || null;
+  row.notes = subAct.notes || [];
   return cleanRowAndPrepare('project_sub_activities', row);
 }
 
