@@ -69,6 +69,7 @@ export interface SubActivity {
   status: 'Belum Mulai' | 'Sedang Dikerjakan' | 'Tertunda' | 'Selesai';
   priority: 'Low' | 'Normal' | 'High';
   due?: string;
+  notes?: ActivityNote[];
 }
 
 export interface Activity {

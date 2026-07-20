@@ -613,6 +613,14 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
                       </div>
                     </div>
 
+                    {act.notes && Array.isArray(act.notes) && act.notes.length > 0 && (
+                      <div className="bg-slate-50 border border-slate-100/60 p-2.5 rounded-lg text-[10.5px] mt-1 space-y-0.5">
+                        <span className="text-[8.5px] font-extrabold text-blue-600 uppercase tracking-widest block">📝 Catatan Perkembangan Terakhir:</span>
+                        <p className="font-bold text-slate-700 leading-snug">"{act.notes[act.notes.length - 1].text}"</p>
+                        <span className="text-[8px] text-slate-400 block font-mono">📅 {act.notes[act.notes.length - 1].date} · Oleh {act.notes[act.notes.length - 1].author}</span>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100/50">
                       <span>Jatuh Tempo: <strong className="text-slate-505">{act.dueDate || '—'}</strong></span>
                       <div className="flex items-center gap-1.5">

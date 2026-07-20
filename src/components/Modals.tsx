@@ -234,24 +234,25 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
 
           {/* Staging notes / Challenges */}
           <div className="space-y-3 pt-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-rose-500 block">
-              ⚠️ Hambatan, Tantangan &amp; Tindakan Mitigasi
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 block flex items-center gap-1.5">
+              📈 Histori Catatan Perkembangan &amp; Tantangan
             </span>
             <div className="max-h-[140px] overflow-y-auto space-y-2 border border-slate-50 p-2.5 rounded-lg bg-slate-50/30">
               {notes.length === 0 ? (
-                <p className="text-slate-400 italic text-[11px] text-center">Belum ada rincian tantangan terdaftar di kegiatan ini.</p>
+                <p className="text-slate-400 italic text-[11px] text-center py-2">Belum ada histori catatan perkembangan terdaftar di kegiatan ini.</p>
               ) : (
-                notes.map((n) => (
-                  <div key={n.id} className="p-2 border border-slate-100 bg-white rounded-lg flex items-start justify-between gap-4">
+                [...notes].reverse().map((n) => (
+                  <div key={n.id} className="p-2 border border-slate-100 bg-white rounded-lg flex items-start justify-between gap-4 shadow-2xs">
                     <div className="space-y-1">
                       <p className="font-bold text-slate-800 leading-snug">"{n.text}"</p>
-                      <span className="text-[9px] text-slate-400 block font-mono">
-                        Oleh {n.author} | {n.date}
+                      <span className="text-[9.5px] text-slate-400 block font-mono">
+                        ✍️ Oleh {n.author} | 📅 {n.date}
                       </span>
                     </div>
                     <button
                       onClick={() => setNotes(notes.filter((item) => item.id !== n.id))}
-                      className="text-slate-300 hover:text-rose-500 p-0.5"
+                      className="text-slate-300 hover:text-rose-500 p-0.5 cursor-pointer"
+                      title="Hapus catatan"
                     >
                       ✕
                     </button>
@@ -263,17 +264,23 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Tulis kendala baru atau rincian penyelesaian..."
+                placeholder="Tulis catatan perkembangan, kendala, atau tindakan penyelesaian terbaru..."
                 className="flex-1 bg-slate-50 border border-slate-200 rounded-lg py-1 px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:bg-white"
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddNote();
+                  }
+                }}
               />
               <button
                 type="button"
                 onClick={handleAddNote}
-                className="bg-slate-800 hover:bg-slate-950 text-white font-bold py-1 px-4 rounded-lg cursor-pointer text-[10px]"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-1 px-4 rounded-lg cursor-pointer text-[10px]"
               >
-                Tambah
+                Simpan Catatan
               </button>
             </div>
           </div>
@@ -1843,6 +1850,10 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
   const [subPriority, setSubPriority] = useState<'Low' | 'Normal' | 'High'>('Normal');
   const [subDue, setSubDue] = useState('');
   const [editingSubId, setEditingSubId] = useState<string | null>(null);
+  
+  // Progress notes for Sub-Activity
+  const [subNotes, setSubNotes] = useState<ActivityNote[]>([]);
+  const [newSubNote, setNewSubNote] = useState('');
 
   useEffect(() => {
     if (!isOpen) {
@@ -1853,12 +1864,26 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
       setSubPriority('Normal');
       setSubDue('');
       setEditingSubId(null);
+      setSubNotes([]);
+      setNewSubNote('');
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const relevantSubs = subActivities.filter((item) => SupabaseSync.isIdMatch(item.parentActivityId, parentActivityId));
+
+  const handleAddSubNote = () => {
+    if (!newSubNote.trim()) return;
+    const item: ActivityNote = {
+      id: `sn-${Date.now()}`,
+      text: newSubNote,
+      date: new Date().toISOString().split('T')[0],
+      author: 'Imam Trihatmadja',
+    };
+    setSubNotes([...subNotes, item]);
+    setNewSubNote('');
+  };
 
   const handleSave = () => {
     if (!subTitle.trim()) {
@@ -1875,6 +1900,7 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
       status: subStatus,
       priority: subPriority,
       due: subDue || undefined,
+      notes: subNotes,
     });
 
     // Reset inputs
@@ -1884,6 +1910,8 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
     setSubStatus('Belum Mulai');
     setSubPriority('Normal');
     setSubDue('');
+    setSubNotes([]);
+    setNewSubNote('');
     setEditingSubId(null);
   };
 
@@ -1939,14 +1967,21 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
                       key={item.id}
                       className="p-3 bg-slate-50/60 rounded-xl border border-slate-100 flex items-start justify-between gap-4"
                     >
-                      <div className="space-y-1">
+                      <div className="space-y-1 flex-1">
                         <h5 className="font-bold text-slate-800 text-[11px] leading-snug">{item.title}</h5>
                         {item.desc && (
                           <div className="text-slate-500 text-[11px] leading-normal">
                             <FormattedText text={item.desc} className="text-slate-500 text-[11px]" />
                           </div>
                         )}
-                        <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[10px] text-slate-400 font-semibold">
+                        {item.notes && item.notes.length > 0 && (
+                          <div className="bg-blue-50/40 border border-blue-100/20 p-2 rounded-lg mt-1.5 text-[10px]">
+                            <span className="text-[8.5px] font-extrabold uppercase tracking-widest text-blue-500 block">📝 Perkembangan Terakhir:</span>
+                            <p className="font-bold text-slate-700 mt-0.5">"{item.notes[item.notes.length - 1].text}"</p>
+                            <span className="text-[8px] text-slate-400 block font-mono mt-0.5">📅 {item.notes[item.notes.length - 1].date}</span>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2 pt-1 text-[10px] text-slate-400 font-semibold">
                           <span>PIC: <strong className="text-slate-600">{item.pic || 'Belum Diatur'}</strong></span>
                           <span>•</span>
                           <span>Priority: <span className={`py-0.2 px-1.5 rounded-md border inline ${priorityColor}`}>{item.priority}</span></span>
@@ -1967,6 +2002,7 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
                               setSubStatus(item.status);
                               setSubPriority(item.priority || 'Normal');
                               setSubDue(item.due || '');
+                              setSubNotes(item.notes || []);
                             }}
                             className={`p-1 transition-colors rounded-md ${editingSubId === item.id ? 'text-blue-600 bg-blue-50' : 'text-slate-300 hover:text-blue-600 hover:bg-slate-100'}`}
                             title="Ubah Sub-Aktivitas"
@@ -1983,6 +2019,7 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
                                 setSubStatus('Belum Mulai');
                                 setSubPriority('Normal');
                                 setSubDue('');
+                                setSubNotes([]);
                               }
                               onDeleteSubActivity(item.id);
                             }}
@@ -2088,6 +2125,59 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
               </div>
             </div>
 
+            {/* Notes for Sub-Activity */}
+            <div className="border-t border-slate-200/60 pt-3.5 space-y-3">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 block flex items-center gap-1.5">
+                📈 Histori Catatan Perkembangan Sub-Aktivitas
+              </span>
+              <div className="max-h-[110px] overflow-y-auto space-y-1.5 border border-slate-200/40 p-2 rounded-lg bg-white">
+                {subNotes.length === 0 ? (
+                  <p className="text-slate-400 italic text-[10px] text-center py-2 bg-slate-50/20 rounded-md">Belum ada histori catatan perkembangan pada sub-aktivitas ini.</p>
+                ) : (
+                  [...subNotes].reverse().map((n) => (
+                    <div key={n.id} className="p-1.5 border border-slate-100 bg-slate-50/50 rounded-lg flex items-start justify-between gap-3 text-[10.5px]">
+                      <div className="space-y-0.5 flex-1">
+                        <p className="font-bold text-slate-800 leading-tight">"{n.text}"</p>
+                        <span className="text-[8.5px] text-slate-400 block font-mono">
+                          ✍️ Oleh {n.author} | 📅 {n.date}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSubNotes(subNotes.filter((item) => item.id !== n.id))}
+                        className="text-slate-300 hover:text-rose-500 p-0.5 cursor-pointer"
+                        title="Hapus"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Tulis catatan perkembangan terbaru..."
+                  className="flex-1 bg-white border border-slate-200 rounded-lg py-1 px-3 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-blue-450 focus:bg-white"
+                  value={newSubNote}
+                  onChange={(e) => setNewSubNote(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddSubNote();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddSubNote}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-1 px-3.5 rounded-lg cursor-pointer text-[10px] whitespace-nowrap"
+                >
+                  Tambah Catatan
+                </button>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2 pt-2">
               {editingSubId && (
                 <button
@@ -2100,8 +2190,10 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
                     setSubStatus('Belum Mulai');
                     setSubPriority('Normal');
                     setSubDue('');
+                    setSubNotes([]);
+                    setNewSubNote('');
                   }}
-                  className="bg-slate-250 hover:bg-slate-300 text-slate-600 font-extrabold text-[10px] py-1.5 px-4 rounded-lg cursor-pointer transition-all"
+                  className="bg-slate-200 hover:bg-slate-300 text-slate-600 font-extrabold text-[10px] py-1.5 px-4 rounded-lg cursor-pointer transition-all"
                 >
                   Batal
                 </button>
