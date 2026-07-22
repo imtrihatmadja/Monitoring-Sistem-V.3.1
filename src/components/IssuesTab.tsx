@@ -162,7 +162,7 @@ export const IssuesTab: React.FC<IssuesTabProps> = ({
     } else {
       // Add mode
       const newIssue: Issue = {
-        id: `is-${Date.now()}`,
+        id: `is-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         title: formTitle.trim(),
         description: formDescription.trim() || undefined,
         category: formCategory,
@@ -192,7 +192,7 @@ export const IssuesTab: React.FC<IssuesTabProps> = ({
     }
 
     const newLog: IssueUpdate = {
-      id: `up-${Date.now()}`,
+      id: `up-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       text: newUpdateText.trim(),
       evidenceUrl: newUpdateEvidence.trim() || undefined,
       date: new Date().toISOString().split('T')[0],

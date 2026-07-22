@@ -656,12 +656,23 @@ export default function App() {
   };
 
   const updateIndicatorsInStorage = (newList: Indicator[]) => {
-    setIndicators(newList);
-    localStorage.setItem('dfw_indicators', JSON.stringify(newList));
+    // Deduplicate by ID to safeguard against any legacy duplicate IDs
+    const seenIds = new Set<string>();
+    const sanitizedList = newList.map((item, idx) => {
+      let id = item.id;
+      if (!id || seenIds.has(id)) {
+        id = `ind-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 9)}`;
+      }
+      seenIds.add(id);
+      return { ...item, id };
+    });
+
+    setIndicators(sanitizedList);
+    localStorage.setItem('dfw_indicators', JSON.stringify(sanitizedList));
     if (dbIsConfigured) {
-      const deleted = indicators.filter(i => !newList.some(item => item.id === i.id));
+      const deleted = indicators.filter(i => !sanitizedList.some(item => item.id === i.id));
       deleted.forEach(i => handleSyncResult(SupabaseSync.deleteIndicator(i.id), "Penghapusan indikator"));
-      newList.forEach(item => {
+      sanitizedList.forEach(item => {
         const oldItem = indicators.find(i => i.id === item.id);
         if (!oldItem || JSON.stringify(oldItem) !== JSON.stringify(item)) {
           handleSyncResult(SupabaseSync.saveIndicator(item), "Indikator");
@@ -977,23 +988,39 @@ export default function App() {
 
       // Save outcomes
       const filteredOutcomes = outcomes.filter((o) => !isIdMatch(o.projectId, selectedProjectId));
-      const newOutcomes = outcomesData.map((o) => ({
-        id: o.id || `out-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        projectId: selectedProjectId,
-        title: o.title || '',
-      }));
+      const seenOutIds = new Set<string>();
+      const newOutcomes = outcomesData.map((o, idx) => {
+        let finalId = o.id;
+        if (!finalId || finalId.startsWith('temp-') || seenOutIds.has(finalId)) {
+          finalId = `out-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 9)}`;
+        }
+        seenOutIds.add(finalId);
+        return {
+          id: finalId,
+          projectId: selectedProjectId,
+          title: o.title || '',
+        };
+      });
       updateOutcomesInStorage([...filteredOutcomes, ...newOutcomes]);
 
       // Save indicators
       const filteredIndicators = indicators.filter((i) => !isIdMatch(i.projectId, selectedProjectId));
-      const newIndicators = indicatorsData.map((ind) => ({
-        id: ind.id || `ind-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        projectId: selectedProjectId,
-        title: ind.title || '',
-        target: ind.target || 0,
-        current: ind.current || 0,
-        unit: ind.unit || 'Orang',
-      }));
+      const seenIndIds = new Set<string>();
+      const newIndicators = indicatorsData.map((ind, idx) => {
+        let finalId = ind.id;
+        if (!finalId || finalId.startsWith('temp-') || finalId.startsWith('t-ind-') || seenIndIds.has(finalId)) {
+          finalId = `ind-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 9)}`;
+        }
+        seenIndIds.add(finalId);
+        return {
+          id: finalId,
+          projectId: selectedProjectId,
+          title: ind.title || '',
+          target: ind.target || 0,
+          current: ind.current || 0,
+          unit: ind.unit || 'Orang',
+        };
+      });
       updateIndicatorsInStorage([...filteredIndicators, ...newIndicators]);
 
       recalculateProgressAndSave(selectedProjectId);
@@ -1021,21 +1048,37 @@ export default function App() {
 
       updateProjectsInStorage([...projects, newProj]);
 
-      const newOutcomes = outcomesData.map((o) => ({
-        id: `out-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        projectId: newId,
-        title: o.title || '',
-      }));
+      const seenOutIds = new Set<string>();
+      const newOutcomes = outcomesData.map((o, idx) => {
+        let finalId = o.id;
+        if (!finalId || finalId.startsWith('temp-') || seenOutIds.has(finalId)) {
+          finalId = `out-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 9)}`;
+        }
+        seenOutIds.add(finalId);
+        return {
+          id: finalId,
+          projectId: newId,
+          title: o.title || '',
+        };
+      });
       updateOutcomesInStorage([...outcomes, ...newOutcomes]);
 
-      const newIndicators = indicatorsData.map((ind) => ({
-        id: `ind-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        projectId: newId,
-        title: ind.title || '',
-        target: ind.target || 0,
-        current: ind.current || 0,
-        unit: ind.unit || 'Orang',
-      }));
+      const seenIndIds = new Set<string>();
+      const newIndicators = indicatorsData.map((ind, idx) => {
+        let finalId = ind.id;
+        if (!finalId || finalId.startsWith('temp-') || finalId.startsWith('t-ind-') || seenIndIds.has(finalId)) {
+          finalId = `ind-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 9)}`;
+        }
+        seenIndIds.add(finalId);
+        return {
+          id: finalId,
+          projectId: newId,
+          title: ind.title || '',
+          target: ind.target || 0,
+          current: ind.current || 0,
+          unit: ind.unit || 'Orang',
+        };
+      });
       updateIndicatorsInStorage([...indicators, ...newIndicators]);
 
       setSyncToast('success');

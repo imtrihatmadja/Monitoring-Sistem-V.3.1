@@ -100,7 +100,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
   }, [initialProject, initialIndicators, initialOutcomes]);
 
   const handleAddOutcome = () => {
-    setOutcomes([...outcomes, { id: `out-${Date.now()}`, title: '' }]);
+    setOutcomes([...outcomes, { id: `out-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, title: '' }]);
   };
 
   const handleRemoveOutcome = (id: string) => {
@@ -114,8 +114,62 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
   const handleAddIndicator = () => {
     setIndicators([
       ...indicators,
-      { id: `ind-${Date.now()}`, title: '', target: 0, current: 0, unit: 'Orang' },
+      { id: `ind-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, title: '', target: 0, current: 0, unit: 'Orang' },
     ]);
+  };
+
+  // Bulk Add Indicators State
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+
+  const handleProcessBulkIndicators = () => {
+    if (!bulkText.trim()) return;
+    const lines = bulkText.split('\n').map((l) => l.trim()).filter(Boolean);
+    const parsed: { id: string; title: string; target: number; current: number; unit: string }[] = [];
+    
+    lines.forEach((line, idx) => {
+      const parts = line.includes('\t') 
+        ? line.split('\t') 
+        : line.includes('|') 
+          ? line.split('|') 
+          : [line];
+
+      const title = parts[0]?.trim() || '';
+      if (!title) return;
+
+      let target = 0;
+      let current = 0;
+      let unit = 'Orang';
+
+      if (parts[1]) {
+        const parsedTarget = parseFloat(parts[1].replace(/[^0-9.]/g, ''));
+        if (!isNaN(parsedTarget)) target = parsedTarget;
+      }
+      if (parts[2]) {
+        const num = parseFloat(parts[2].replace(/[^0-9.]/g, ''));
+        if (!isNaN(num)) {
+          current = num;
+          if (parts[3]) unit = parts[3].trim() || 'Orang';
+        } else {
+          unit = parts[2].trim() || 'Orang';
+        }
+      }
+
+      parsed.push({
+        id: `ind-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 9)}`,
+        title,
+        target,
+        current,
+        unit,
+      });
+    });
+
+    if (parsed.length > 0) {
+      const cleaned = indicators.filter((i) => i.title.trim() !== '');
+      setIndicators([...cleaned, ...parsed]);
+      setBulkText('');
+      setShowBulkModal(false);
+    }
   };
 
   const handleRemoveIndicator = (id: string) => {
@@ -423,16 +477,84 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
       {/* STEP 2: KPI & Indicators Setup */}
       {step === 2 && (
         <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-xs space-y-6 animate-fade-in">
-          <div className="border-b border-slate-50 pb-3 flex justify-between items-center">
-            <h3 className="font-extrabold text-slate-800 text-sm tracking-wide uppercase">📊 Indikator Kinerja &amp; Target Capaian</h3>
-            <button
-              type="button"
-              onClick={handleAddIndicator}
-              className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-1 px-3 rounded-lg text-[10px] cursor-pointer"
-            >
-              ＋ Tambah Indikator Baru
-            </button>
+          <div className="border-b border-slate-50 pb-3 flex justify-between items-center flex-wrap gap-2">
+            <div>
+              <h3 className="font-extrabold text-slate-800 text-sm tracking-wide uppercase">📊 Indikator Kinerja &amp; Target Capaian</h3>
+              <p className="text-[10px] text-slate-400">Total {indicators.length} indikator terdaftar</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(true)}
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-1 px-3 rounded-lg text-[10px] cursor-pointer border border-emerald-200"
+              >
+                📋 Input Banyak Indikator Sekaligus
+              </button>
+              <button
+                type="button"
+                onClick={handleAddIndicator}
+                className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-1 px-3 rounded-lg text-[10px] cursor-pointer border border-blue-200"
+              >
+                ＋ Tambah Indikator Baru
+              </button>
+            </div>
           </div>
+
+          {/* Bulk Add Modal */}
+          {showBulkModal && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+              <div className="bg-white rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wide">📋 Input Banyak Indikator Sekaligus</h3>
+                    <p className="text-xs text-slate-500">Paste baris teks/tabel Excel langsung ke dalam kotak di bawah ini.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkModal(false)}
+                    className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer px-2"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-slate-600">
+                    Format (1 Indikator per baris):
+                  </label>
+                  <p className="text-[10px] text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    Contoh format tab/Excel atau pipa (|):<br/>
+                    <code className="text-blue-600">Jumlah kelompok usaha | 100 | 0 | Kelompok</code><br/>
+                    Atau cukup teks nama indikator per baris.
+                  </p>
+                  <textarea
+                    rows={8}
+                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 font-mono focus:outline-none focus:border-blue-500"
+                    placeholder={`Jumlah nelayan binaan | 100 | 0 | Orang\nJumlah kapal bersertifikasi | 50 | 12 | Kapal\nJumlah kelompok usaha baru | 10 | 2 | Kelompok`}
+                    value={bulkText}
+                    onChange={(e) => setBulkText(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkModal(false)}
+                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleProcessBulkIndicators}
+                    className="px-5 py-2 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs cursor-pointer"
+                  >
+                    Tambahkan ke Daftar Indikator
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div id="indicators-list-container" className="space-y-4">
             {indicators.map((ind, index) => (
