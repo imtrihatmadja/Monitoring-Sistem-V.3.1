@@ -1858,16 +1858,19 @@ export default function App() {
     const actRowsHtml = rangedActivities.map((act, i) => {
       const c = _statusColor(act.status);
       const prog = act.progress || 0;
-      const notesHtml = act.notes && act.notes.length > 0
-        ? act.notes.slice(-3).map(n => `
-            <div style="display: flex; gap: 5px; align-items: flex-start; margin-bottom: 5px; background: #fafafa; border: 1px solid #f1f5f9; padding: 4px 6px; border-radius: 4px;">
+      const notesHtml = (act.notes && act.notes.length > 0) || act.challenges
+        ? `
+          ${act.challenges ? `<div style="margin-bottom: 5px; background: #fef2f2; border: 1px solid #fee2e2; padding: 4px 6px; border-radius: 4px; font-size: 8pt; color: #991b1b;"><strong>⚠️ ${isID ? 'Hambatan' : 'Challenge'}:</strong> ${act.challenges}</div>` : ''}
+          ${act.notes && act.notes.length > 0 ? act.notes.map(n => `
+            <div style="display: flex; gap: 5px; align-items: flex-start; margin-bottom: 4px; background: #fafafa; border: 1px solid #f1f5f9; padding: 4px 6px; border-radius: 4px;">
               <span style="color: #2563eb; flex-shrink: 0; font-size: 8.5pt;">📈</span>
               <div style="font-size: 8pt; color: #334155; line-height: 1.3;">
                 <strong>"${n.text}"</strong>
                 <div style="color: #94a3b8; font-size: 7pt; margin-top: 2px;">✍️ ${n.author} | 📅 ${_rptDate(n.date)}</div>
               </div>
             </div>
-          `).join('')
+          `).join('') : ''}
+        `
         : `<span style="color: #94a3b8; font-size: 8.5pt; font-style: italic;">—</span>`;
 
       // Nested sub-activities that belong to this activity and are in range
@@ -1890,7 +1893,7 @@ export default function App() {
                       <div style="font-size: 7.5pt; font-weight: 850; color: #2563eb; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 1px; display: flex; align-items: center; gap: 4px;">
                         <span>📈</span> ${isID ? 'Catatan Perkembangan Sub-Aktivitas' : 'Sub-Activity Progress Notes'}:
                       </div>
-                      ${sub.notes.slice(-2).map(sn => `
+                      ${sub.notes.map(sn => `
                         <div style="font-size: 8pt; line-height: 1.25; color: #334155;">
                           • <strong>"${sn.text}"</strong> <span style="font-size: 7.2pt; color: #94a3b8; font-style: italic;">(${sn.author} · ${_rptDate(sn.date)})</span>
                         </div>
@@ -1974,61 +1977,116 @@ export default function App() {
       </div>
     ` : '';
 
-    // Challenges & Obstacles Section (hambatan-card) Block HTML
-    const actsWithNotes = rangedActivities.filter((a) => a.notes && a.notes.length > 0);
-    const subsWithNotes = rangedSubActivities.filter((s) => s.notes && s.notes.length > 0);
-    
-    const combinedHambatanCardsHtml = [
-      ...actsWithNotes.map((act) => {
-        const notesItems = act.notes.map((n) => `
-          <div class="hambatan-note-item">
-            <div class="hambatan-note-dot"></div>
-            <div>
-              <div class="hambatan-note-text" style="font-weight: 500;">${n.text}</div>
-              <div class="hambatan-note-meta">${_rptDate(n.date)} · ${n.author}</div>
-            </div>
-          </div>
-        `).join('');
-        return `
-          <div class="hambatan-card">
-            <div class="hambatan-act-title">
-              <span style="background: #fef3c7; color: #92400e; border-radius: 6px; padding: 2px 7px; font-size: 8pt; font-weight: 700;">Aktivitas</span>
-              ${act.title}
-            </div>
-            <div class="hambatan-notes">${notesItems}</div>
-          </div>
-        `;
-      }),
-      ...subsWithNotes.map((sub) => {
-        const notesItems = sub.notes!.map((n) => `
-          <div class="hambatan-note-item">
-            <div class="hambatan-note-dot" style="background: #3b82f6;"></div>
-            <div>
-              <div class="hambatan-note-text" style="font-weight: 500;">${n.text}</div>
-              <div class="hambatan-note-meta">${_rptDate(n.date)} · ${n.author}</div>
-            </div>
-          </div>
-        `).join('');
-        return `
-          <div class="hambatan-card" style="border-left: 3px solid #3b82f6;">
-            <div class="hambatan-act-title">
-              <span style="background: #dbeafe; color: #1e40af; border-radius: 6px; padding: 2px 7px; font-size: 8pt; font-weight: 700;">Sub-Aktivitas</span>
-              ${sub.title}
-            </div>
-            <div class="hambatan-notes">${notesItems}</div>
-          </div>
-        `;
-      })
-    ].join('');
+    // Challenges & Obstacles / Activity Progress Log Section Block HTML
+    const actsWithNotesOrChallenges = rangedActivities.filter((a) => (a.notes && a.notes.length > 0) || a.challenges || rangedSubActivities.some(s => isIdMatch(s.parentActivityId, a.id)));
+    const totalNotesCount = rangedActivities.reduce((acc, a) => acc + (a.notes ? a.notes.length : 0), 0) + rangedSubActivities.reduce((acc, s) => acc + (s.notes ? s.notes.length : 0), 0);
 
-    const hambatanCardsHtml = combinedHambatanCardsHtml || `<div class="hambatan-empty">${L.noHambatan}</div>`;
-    const totalNotesCount = actsWithNotes.length + subsWithNotes.length;
+    const combinedHambatanCardsHtml = rangedActivities.length > 0
+      ? rangedActivities.map((act) => {
+          const actColor = _statusColor(act.status);
+          const subActsForThisAct = rangedSubActivities.filter((s) => isIdMatch(s.parentActivityId, act.id));
+          
+          const hasActNotes = act.notes && act.notes.length > 0;
+          const hasChallenges = !!act.challenges;
+          const hasSubActs = subActsForThisAct.length > 0;
+
+          const notesItems = hasActNotes ? act.notes.map((n) => `
+            <div class="hambatan-note-item" style="display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px;">
+              <div class="hambatan-note-dot" style="width: 6px; height: 6px; border-radius: 50%; background: #2563eb; flex-shrink: 0; margin-top: 5px;"></div>
+              <div style="flex: 1;">
+                <div class="hambatan-note-text" style="font-size: 9pt; color: #1e293b; font-weight: 600; line-height: 1.4;">${n.text}</div>
+                <div class="hambatan-note-meta" style="font-size: 7.5pt; color: #94a3b8; margin-top: 2px;">✍️ ${n.author} · 📅 ${_rptDate(n.date)}</div>
+              </div>
+            </div>
+          `).join('') : '';
+
+          const challengesHtml = hasChallenges ? `
+            <div style="background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; font-size: 8.5pt; color: #991b1b;">
+              <strong>⚠️ ${isID ? 'Kendala & Hambatan Utama' : 'Key Obstacle & Challenge'}:</strong>
+              <div style="margin-top: 3px; font-weight: 500; color: #7f1d1d;">${formatPdfText(act.challenges)}</div>
+            </div>
+          ` : '';
+
+          const subActsSectionHtml = hasSubActs ? `
+            <div style="margin-top: 10px; border-top: 1px dashed #e2e8f0; padding-top: 8px;">
+              <div style="font-size: 8pt; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                <span>📌</span> ${isID ? 'Sub-Aktivitas & Catatan Perkembangan' : 'Sub-Activities & Progress Log'} (${subActsForThisAct.length})
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                ${subActsForThisAct.map((sub) => {
+                  const subColor = _statusColor(sub.status);
+                  const subHasNotes = sub.notes && sub.notes.length > 0;
+                  return `
+                    <div style="background: #f8fafc; border: 1px solid #f1f5f9; border-left: 3px solid #3b82f6; border-radius: 6px; padding: 8px 12px;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <strong style="font-size: 8.5pt; color: #1e293b;">${sub.title}</strong>
+                        <div style="display: flex; align-items: center; gap: 8px; font-size: 7.5pt; color: #64748b;">
+                          <span>👤 ${sub.pic || '—'}</span>
+                          ${badge(sub.status, subColor)}
+                        </div>
+                      </div>
+                      ${sub.desc ? `<div style="font-size: 8pt; color: #64748b; margin-top: 3px;">${sub.desc}</div>` : ''}
+                      ${subHasNotes ? `
+                        <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                          <span style="font-size: 7.5pt; font-weight: 850; color: #2563eb;">📈 ${isID ? 'Update Perkembangan' : 'Progress Updates'}:</span>
+                          ${sub.notes!.map((sn) => `
+                            <div style="font-size: 8pt; color: #334155; line-height: 1.3;">
+                              • <strong>"${sn.text}"</strong> <span style="font-size: 7pt; color: #94a3b8;">(${sn.author} · ${_rptDate(sn.date)})</span>
+                            </div>
+                          `).join('')}
+                        </div>
+                      ` : ''}
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          ` : '';
+
+          return `
+            <div class="hambatan-card" style="border-left: 4px solid ${actColor}; background: #ffffff; border: 1px solid #e2e8f0; border-left-color: ${actColor}; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; page-break-inside: avoid; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; flex-wrap: wrap;">
+                <div style="flex: 1;">
+                  <div style="font-size: 10pt; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                    <span style="background: ${actColor}15; color: ${actColor}; font-size: 8pt; font-weight: 800; padding: 2px 8px; border-radius: 6px;">Aktivitas</span>
+                    ${act.title}
+                  </div>
+                  ${act.desc ? `<div style="font-size: 8.5pt; color: #64748b; margin-top: 3px;">${act.desc}</div>` : ''}
+                  <div style="font-size: 8pt; color: #64748b; margin-top: 4px; display: flex; gap: 12px;">
+                    <span>👤 PIC: <strong>${act.pic || '—'}</strong></span>
+                    ${act.dueDate ? `<span>📅 Tenggat: <strong>${_rptDate(act.dueDate)}</strong></span>` : ''}
+                  </div>
+                </div>
+                <div style="text-align: right; flex-shrink: 0;">
+                  ${badge(act.status, actColor)}
+                  <div style="font-size: 10pt; font-weight: 850; color: ${actColor}; margin-top: 4px;">${act.progress || 0}%</div>
+                </div>
+              </div>
+
+              ${challengesHtml}
+
+              ${hasActNotes ? `
+                <div style="margin-top: 8px;">
+                  <div style="font-size: 8pt; font-weight: 800; color: #2563eb; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                    📈 ${isID ? 'Catatan & Jurnal Perkembangan Aktivitas' : 'Activity Progress Log'} (${act.notes.length})
+                  </div>
+                  <div class="hambatan-notes" style="background: #f8fafc; border: 1px solid #f1f5f9; padding: 10px 12px; border-radius: 8px;">
+                    ${notesItems}
+                  </div>
+                </div>
+              ` : ''}
+
+              ${subActsSectionHtml}
+            </div>
+          `;
+        }).join('')
+      : `<div class="hambatan-empty">${L.noHambatan}</div>`;
 
     const challengesSectionHtml = `
       <div class="section-card page-break avoid-break">
-        ${secHead('📈', L.sec_hambatan, '#2563eb', totalNotesCount + ' ' + (isID ? 'Catatan' : 'Entries'))}
+        ${secHead('📈', L.sec_hambatan, '#2563eb', (totalNotesCount > 0 ? totalNotesCount + ' ' + (isID ? 'Catatan' : 'Entries') : rangedActivities.length + ' ' + (isID ? 'Aktivitas' : 'Activities')))}
         <p style="font-size: 9pt; color: #64748b; margin-bottom: 14px; font-style: italic; font-weight: 500;">${L.hambatanDesc}</p>
-        <div class="hambatan-list">${hambatanCardsHtml}</div>
+        <div class="hambatan-list">${combinedHambatanCardsHtml}</div>
       </div>
     `;
 
