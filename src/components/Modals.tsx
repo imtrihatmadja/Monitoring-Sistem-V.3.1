@@ -373,7 +373,7 @@ interface PrintModalProps {
 }
 
 export const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, defaultType, onGeneratePrint }) => {
-  const [preset, setPreset] = useState<'month' | 'quarter' | 'year' | 'custom'>('month');
+  const [preset, setPreset] = useState<'all' | 'month' | 'quarter' | 'year' | 'custom'>('all');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [reportType, setReportType] = useState<'standard' | 'donor' | 'ceo'>('standard');
@@ -384,17 +384,22 @@ export const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, default
         setReportType(defaultType);
       }
       const today = new Date();
-      setToDate(today.toISOString().split('T')[0]);
 
-      if (preset === 'month') {
+      if (preset === 'all') {
+        setFromDate('');
+        setToDate('');
+      } else if (preset === 'month') {
+        setToDate(today.toISOString().split('T')[0]);
         const lastMonth = new Date();
         lastMonth.setMonth(today.getMonth() - 1);
         setFromDate(lastMonth.toISOString().split('T')[0]);
       } else if (preset === 'quarter') {
+        setToDate(today.toISOString().split('T')[0]);
         const lastQuarter = new Date();
         lastQuarter.setMonth(today.getMonth() - 3);
         setFromDate(lastQuarter.toISOString().split('T')[0]);
       } else if (preset === 'year') {
+        setToDate(today.toISOString().split('T')[0]);
         const lastYear = new Date();
         lastYear.setFullYear(today.getFullYear() - 1);
         setFromDate(lastYear.toISOString().split('T')[0]);
@@ -482,8 +487,8 @@ export const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, default
 
           <div className="space-y-1.5 pt-1">
             <label className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Metode Rentang Tanggal</label>
-            <div className="grid grid-cols-4 gap-1.5 text-center">
-              {['month', 'quarter', 'year', 'custom'].map((item) => (
+            <div className="grid grid-cols-5 gap-1 text-center">
+              {['all', 'month', 'quarter', 'year', 'custom'].map((item) => (
                 <button
                   key={item}
                   onClick={() => setPreset(item as any)}
@@ -493,7 +498,7 @@ export const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, default
                       : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600'
                   }`}
                 >
-                  {item === 'month' ? '1 Bulan' : item === 'quarter' ? '3 Bulan' : item === 'year' ? '1 Tahun' : 'Kustom'}
+                  {item === 'all' ? 'Semua' : item === 'month' ? '1 Bulan' : item === 'quarter' ? '3 Bulan' : item === 'year' ? '1 Thn' : 'Kustom'}
                 </button>
               ))}
             </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Project, Activity, Indicator, Outcome, ProjectReflection, ProjectDocument } from '../types';
 import {
   Play,
@@ -145,27 +145,36 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
   };
 
   // 1. Average activities progress
-  const avgActivitiesProgress = activities.length > 0 
+  const hasAct = activities.length > 0;
+  const avgActivitiesProgress = hasAct 
     ? Math.round(activities.reduce((sum, act) => sum + (act.progress || 0), 0) / activities.length) 
-    : 0;
+    : null;
 
   // 2. Average indicator progress (cap completion of each indicator at 100%)
+  const hasInd = indicators.length > 0;
   const sumIndsProgress = indicators.reduce((sum, ind) => {
-    const currentVal = indValues[ind.id] !== undefined ? indValues[ind.id] : ind.current;
+    const currentVal = indValues[ind.id] !== undefined ? indValues[ind.id] : (ind.current !== undefined ? ind.current : (ind.actual || 0));
     const progressPercent = ind.target > 0 ? Math.round((currentVal / ind.target) * 100) : 0;
     return sum + Math.min(100, progressPercent);
   }, 0);
-  const avgIndicatorsProgress = indicators.length > 0 
+  const avgIndicatorsProgress = hasInd 
     ? Math.round(sumIndsProgress / indicators.length) 
-    : 0;
+    : null;
 
   // 3. Overall composite progress
-  const overallProgress = Math.round((avgActivitiesProgress + avgIndicatorsProgress) / 2);
+  let overallProgress = 0;
+  if (avgActivitiesProgress !== null && avgIndicatorsProgress !== null) {
+    overallProgress = Math.round((avgActivitiesProgress + avgIndicatorsProgress) / 2);
+  } else if (avgActivitiesProgress !== null) {
+    overallProgress = avgActivitiesProgress;
+  } else if (avgIndicatorsProgress !== null) {
+    overallProgress = avgIndicatorsProgress;
+  }
 
   // 4. Counts
   const totalIndicators = indicators.length;
   const achievedIndicatorsCount = indicators.filter((ind) => {
-    const val = indValues[ind.id] !== undefined ? indValues[ind.id] : ind.current;
+    const val = indValues[ind.id] !== undefined ? indValues[ind.id] : (ind.current !== undefined ? ind.current : (ind.actual || 0));
     return val >= ind.target && ind.target > 0;
   }).length;
 
@@ -416,11 +425,11 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
             {/* formula detail row */}
             <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500 pt-1">
               <span className="bg-slate-50 border border-slate-150 px-2 py-1 rounded-md text-slate-600 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Aktivitas {avgActivitiesProgress}%
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Aktivitas {avgActivitiesProgress !== null ? avgActivitiesProgress : 0}%
               </span>
               <span className="text-slate-350 font-medium">+</span>
               <span className="bg-slate-50 border border-slate-150 px-2 py-1 rounded-md text-slate-600 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Indikator {avgIndicatorsProgress}%
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Indikator {avgIndicatorsProgress !== null ? avgIndicatorsProgress : 0}%
               </span>
               <span className="text-slate-350 font-medium">÷ 2</span>
             </div>
@@ -438,7 +447,7 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
             </div>
             <div className="bg-slate-50/40 border border-slate-100 p-4 rounded-xl shadow-3xs space-y-2">
               <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">Avg. Indikator</span>
-              <p className="text-2xl font-extrabold text-blue-600">{avgIndicatorsProgress}%</p>
+              <p className="text-2xl font-extrabold text-blue-600">{avgIndicatorsProgress !== null ? avgIndicatorsProgress : 0}%</p>
             </div>
             <div className="bg-slate-50/40 border border-slate-100 p-4 rounded-xl shadow-3xs space-y-2">
               <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">Update Terakhir</span>
@@ -1071,6 +1080,10 @@ const PirsIndicatorRow: React.FC<{
 }> = ({ index, indicator, onSave }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [narrative, setNarrative] = useState(indicator.type || '');
+
+  useEffect(() => {
+    setNarrative(indicator.type || '');
+  }, [indicator.type]);
 
   const handleSave = () => {
     onSave(narrative);

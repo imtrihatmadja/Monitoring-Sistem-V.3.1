@@ -786,14 +786,38 @@ export default function App() {
     }
   };
 
-  // Recalculates project overall progress dynamically based on activity progress averages
-  const recalculateProgressAndSave = (projId: string, customActivities?: Activity[]) => {
-    const list = customActivities || activities;
-    const projectActs = list.filter((act) => isIdMatch(act.projectId, projId));
+  // Recalculates project overall progress dynamically based on activity progress averages & indicator progress
+  const recalculateProgressAndSave = (projId: string, customActivities?: Activity[], customIndicators?: Indicator[]) => {
+    const actList = customActivities || activities;
+    const indList = customIndicators || indicators;
+
+    const projectActs = actList.filter((act) => isIdMatch(act.projectId, projId));
+    const projectInds = indList.filter((ind) => isIdMatch(ind.projectId, projId));
     
-    let newProgress = 0;
+    let avgAct: number | null = null;
     if (projectActs.length > 0) {
-      newProgress = Math.round(projectActs.reduce((sum, act) => sum + act.progress, 0) / projectActs.length);
+      avgAct = Math.round(projectActs.reduce((sum, act) => sum + (act.progress || 0), 0) / projectActs.length);
+    }
+
+    let avgInd: number | null = null;
+    if (projectInds.length > 0) {
+      avgInd = Math.round(
+        projectInds.reduce((sum, ind) => {
+          const t = ind.target || 0;
+          const a = ind.current !== undefined ? ind.current : (ind.actual || 0);
+          const pct = t > 0 ? Math.round((a / t) * 100) : 0;
+          return sum + Math.min(100, pct);
+        }, 0) / projectInds.length
+      );
+    }
+
+    let newProgress = 0;
+    if (avgAct !== null && avgInd !== null) {
+      newProgress = Math.round((avgAct + avgInd) / 2);
+    } else if (avgAct !== null) {
+      newProgress = avgAct;
+    } else if (avgInd !== null) {
+      newProgress = avgInd;
     }
 
     const updated = projects.map((p) => {
@@ -1012,7 +1036,10 @@ export default function App() {
           finalId = `ind-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 9)}`;
         }
         seenIndIds.add(finalId);
+        const existingInd = indicators.find((i) => isIdMatch(i.id, ind.id));
         return {
+          ...existingInd,
+          ...ind,
           id: finalId,
           projectId: selectedProjectId,
           title: ind.title || '',
@@ -1071,6 +1098,7 @@ export default function App() {
         }
         seenIndIds.add(finalId);
         return {
+          ...ind,
           id: finalId,
           projectId: newId,
           title: ind.title || '',
@@ -1194,6 +1222,7 @@ export default function App() {
     });
 
     updateIndicatorsInStorage(updated);
+    recalculateProgressAndSave(selectedProjectId, undefined, updated);
     setSyncToast('success');
     setTimeout(() => setSyncToast(''), 3000);
   };
@@ -1403,7 +1432,7 @@ export default function App() {
       avgInd = Math.round(
         projectIndicators.reduce((sum, ind) => {
           const t = ind.target || 0;
-          const a = ind.current || 0;
+          const a = ind.current !== undefined ? ind.current : (ind.actual || 0);
           return sum + (t > 0 ? Math.min(Math.round((a / t) * 100), 100) : 0);
         }, 0) / projectIndicators.length
       );
@@ -1428,7 +1457,7 @@ export default function App() {
     }
 
     const doneInd = projectIndicators.filter((i) => {
-      const a = i.current || 0;
+      const a = i.current !== undefined ? i.current : (i.actual || 0);
       const t = i.target || 0;
       return t > 0 && a >= t;
     }).length;
@@ -1446,7 +1475,7 @@ export default function App() {
       const ru = (ind.unit || '').trim();
       if (!ru) return;
       const k = ru.toLowerCase();
-      const av = ind.current || 0;
+      const av = ind.current !== undefined ? ind.current : (ind.actual || 0);
       if (!impG[k]) impG[k] = { unit: ru, total: 0 };
       impG[k].total += av;
     });
@@ -1474,7 +1503,7 @@ export default function App() {
       actDone: 'Aktivitas Selesai',
       status: 'Status', location: 'Lokasi', owner: 'Penanggung Jawab',
       donor: 'Donor/Mitra', start: 'Tanggal Mulai', deadline: 'Deadline',
-      desc: 'Deskripsi', goal: 'Goal', outcomes: 'Outcomes',
+      desc: 'Deskripsi', goal: 'Goal Proyek', outcomes: 'Project Outcomes (Hasil yang Diharapkan)',
       indName: 'Nama Indikator', type: 'Tipe', target: 'Target',
       actual: 'Realisasi', pct: 'Capaian', lastNote: 'Catatan Terakhir',
       actTitle: 'Judul Aktivitas', pic: 'PIC', startAct: 'Mulai', dueAct: 'Deadline',
@@ -1511,7 +1540,7 @@ export default function App() {
       actDone: 'Activities Completed',
       status: 'Status', location: 'Location', owner: 'Person in Charge',
       donor: 'Donor/Partner', start: 'Start Date', deadline: 'Deadline',
-      desc: 'Description', goal: 'Goal', outcomes: 'Outcomes',
+      desc: 'Description', goal: 'Project Goal', outcomes: 'Project Outcomes',
       indName: 'Indicator Name', type: 'Type', target: 'Target',
       actual: 'Actual', pct: 'Achievement', lastNote: 'Last Note',
       actTitle: 'Activity Title', pic: 'PIC', startAct: 'Start', dueAct: 'Deadline',
@@ -2442,6 +2471,7 @@ export default function App() {
             ${donorCoverHeader}
             ${periodBannerHtml}
             ${donorIntroCard}
+            ${statsSectionHtml}
             
             <!-- IMPACT SECTION FIRST FOR DONORS -->
             ${impactSectionHtml ? `
@@ -2587,6 +2617,7 @@ export default function App() {
             
             <!-- EXECUTIVES WANT STATS FIRST -->
             ${statsSectionHtml}
+            ${goalsSectionHtml}
             ${ceoExceptionsCard}
             
             <!-- COMPACT INDICATORS METRIC -->

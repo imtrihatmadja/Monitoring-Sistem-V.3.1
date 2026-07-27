@@ -39,7 +39,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
   const [outcomes, setOutcomes] = useState<{ id: string; title: string }[]>([]);
 
   // Step 2 states: Indicators
-  const [indicators, setIndicators] = useState<{ id: string; title: string; target: number; current: number; unit: string }[]>([]);
+  const [indicators, setIndicators] = useState<Partial<Indicator>[]>([]);
 
   // Messages error helper
   const [errorMsg, setErrorMsg] = useState('');
@@ -83,13 +83,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
 
     if (initialIndicators && initialIndicators.length > 0) {
       setIndicators(
-        initialIndicators.map((i) => ({
-          id: i.id,
-          title: i.title,
-          target: i.target,
-          current: i.current,
-          unit: i.unit,
-        }))
+        initialIndicators.map((i) => ({ ...i }))
       );
     } else {
       setIndicators([

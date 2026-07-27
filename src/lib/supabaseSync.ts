@@ -392,6 +392,10 @@ function fromDbRow<T>(row: any): T {
     result.birthyear = result.birthYear ? Number(result.birthYear) : undefined;
   }
 
+  if (row.description !== undefined && row.description !== null && !result.type) {
+    result.type = row.description;
+  }
+  
   if (row.notes !== undefined && !result.note) {
     result.note = row.notes;
   }
@@ -563,6 +567,7 @@ function mapIndicatorToDb(ind: Indicator) {
   row.indicator_name = ind.title;
   row.actual = Number(ind.actual !== undefined ? ind.actual : ind.current || 0);
   row.type = ind.type || null;
+  row.description = ind.type || ind.notes || null;
   row.sort_order = ind.sortOrder !== undefined ? Number(ind.sortOrder) : 0;
   
   // Attach project_name to fulfill the database's not-null constraint
