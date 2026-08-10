@@ -2962,16 +2962,17 @@ export default function App() {
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="py-1 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shadow-2xs group"
-                title="Klik untuk beralih akun staf / pengguna"
+                title="Beralih akun pengguna / Lihat status role"
               >
-                <div className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">
+                <div className="w-6 h-6 rounded-lg bg-slate-900 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-xs">
                   {activeStaff.name.charAt(0)}
                 </div>
                 <div className="text-left hidden sm:block min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="font-extrabold text-slate-800 text-[11px] truncate">{activeStaff.name}</span>
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded ${currentPermissions.badgeBg} ${currentPermissions.badgeText} border ${currentPermissions.badgeBorder}`}>
-                      {currentPermissions.title}
+                    <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border flex items-center gap-1 ${currentPermissions.badgeBg} ${currentPermissions.badgeText} ${currentPermissions.badgeBorder}`}>
+                      {currentRole !== 'super_admin' && <Lock className="w-2.5 h-2.5 text-slate-500 shrink-0" />}
+                      <span>{currentPermissions.title}</span>
                     </span>
                   </div>
                 </div>
@@ -2981,19 +2982,34 @@ export default function App() {
               {/* User Dropdown Menu */}
               {isUserMenuOpen && (
                 <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in duration-150">
-                  <div className="p-3 bg-slate-900 text-white flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pengguna Aktif Portal</p>
-                      <p className="text-xs font-extrabold text-white">{activeStaff.name}</p>
+                  <div className="p-3.5 bg-slate-900 text-white space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Status Sesi Pengguna</p>
+                        <p className="text-xs font-extrabold text-white truncate">{activeStaff.name}</p>
+                      </div>
+                      <span className={`text-[9px] font-extrabold py-0.5 px-2 rounded-md border shrink-0 ${currentPermissions.badgeBg} ${currentPermissions.badgeText} ${currentPermissions.badgeBorder}`}>
+                        {currentPermissions.badgeIcon} {currentPermissions.title}
+                      </span>
                     </div>
-                    <span className={`text-[10px] font-extrabold py-0.5 px-2 rounded-md ${currentPermissions.badgeBg} ${currentPermissions.badgeText}`}>
-                      {currentPermissions.badgeIcon} {currentPermissions.title}
-                    </span>
+
+                    {activeStaff.email && (
+                      <p className="text-[10px] text-slate-400 font-mono truncate">
+                        📧 {activeStaff.email}
+                      </p>
+                    )}
+
+                    {currentRole !== 'super_admin' && (
+                      <div className="pt-1 flex items-center gap-1 text-[10px] text-amber-300 font-medium">
+                        <Lock className="w-3 h-3 text-amber-400 shrink-0" />
+                        <span>Role terkunci sesuai ketetapan Super Admin</span>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="p-2 space-y-1 max-h-64 overflow-y-auto">
+                  <div className="p-2 space-y-1 max-h-60 overflow-y-auto">
                     <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-2 py-1">
-                      Pilih Akun Staf / Pengguna Terdaftar:
+                      Pilih Akun Staf (Beralih Sesi):
                     </p>
                     {staff.map((st) => {
                       const sRoleKey = st.systemRole || 'field_officer';
@@ -3012,7 +3028,7 @@ export default function App() {
                           }}
                           className={`p-2 rounded-xl transition-all cursor-pointer flex items-center justify-between gap-2 ${
                             isSelected
-                              ? 'bg-blue-50 border border-blue-200 font-bold'
+                              ? 'bg-blue-50/80 border border-blue-200 font-bold shadow-2xs'
                               : 'hover:bg-slate-50 border border-transparent'
                           }`}
                         >
@@ -3026,24 +3042,52 @@ export default function App() {
                             </div>
                           </div>
                           <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border shrink-0 ${stPermissions.badgeBg} ${stPermissions.badgeText} ${stPermissions.badgeBorder}`}>
-                            {stPermissions.badgeIcon} {stPermissions.title}
+                            {stPermissions.badgeIcon} {stPermissions.title.split('/')[0]}
                           </span>
                         </div>
                       );
                     })}
                   </div>
 
-                  <div className="p-2 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-[10px] font-bold text-slate-500">
-                    <span>Atur wewenang di Tab Staff</span>
-                    <button
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsRoleModalOpen(true);
-                      }}
-                      className="text-blue-600 hover:underline font-extrabold cursor-pointer"
-                    >
-                      Matriks RBAC →
-                    </button>
+                  <div className="p-2.5 bg-slate-50 border-t border-slate-100 space-y-2">
+                    {currentRole === 'super_admin' ? (
+                      <div className="flex items-center justify-between text-[10px] font-extrabold">
+                        <button
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setActiveTab('staff');
+                          }}
+                          className="text-slate-700 hover:text-black flex items-center gap-1 cursor-pointer hover:underline"
+                        >
+                          👑 Kelola Role di Tab Staff
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsRoleModalOpen(true);
+                          }}
+                          className="text-blue-600 hover:underline cursor-pointer"
+                        >
+                          🧪 Simulasi RBAC →
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                        <span className="flex items-center gap-1 text-slate-600">
+                          <Lock className="w-3 h-3 text-slate-400" />
+                          Role dikelola Admin
+                        </span>
+                        <button
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsRoleModalOpen(true);
+                          }}
+                          className="text-blue-600 hover:underline font-extrabold cursor-pointer"
+                        >
+                          👁️ Lihat Matriks RBAC →
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -4457,15 +4501,16 @@ ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_
       <RoleSelectorModal
         isOpen={isRoleModalOpen}
         currentRole={currentRole}
+        isSuperAdmin={currentRole === 'super_admin'}
         onClose={() => setIsRoleModalOpen(false)}
         onSelectRole={(r) => {
-          if (activeStaff) {
+          if (currentRole === 'super_admin' && activeStaff) {
             const updated = staff.map((s) => s.id === activeStaff.id ? { ...s, systemRole: r } : s);
-            setStaff(updated);
+            updateStaffInStorage(updated);
+            setSyncToast('success');
+            setTimeout(() => setSyncToast(''), 1500);
           }
           setIsRoleModalOpen(false);
-          setSyncToast('success');
-          setTimeout(() => setSyncToast(''), 1500);
         }}
       />
 

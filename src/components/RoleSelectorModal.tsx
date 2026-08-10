@@ -5,6 +5,7 @@ import { ShieldCheck, Check, X, Lock, Info, Users, Crown, BarChart3, FileText, E
 interface RoleSelectorModalProps {
   isOpen: boolean;
   currentRole: UserRoleType;
+  isSuperAdmin?: boolean;
   onClose: () => void;
   onSelectRole: (role: UserRoleType) => void;
 }
@@ -12,6 +13,7 @@ interface RoleSelectorModalProps {
 export const RoleSelectorModal: React.FC<RoleSelectorModalProps> = ({
   isOpen,
   currentRole,
+  isSuperAdmin = false,
   onClose,
   onSelectRole,
 }) => {
@@ -50,6 +52,18 @@ export const RoleSelectorModal: React.FC<RoleSelectorModalProps> = ({
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-800">
           
+          {!isSuperAdmin && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
+              <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-extrabold text-amber-950">Role Pengguna Terkunci Terpusat</p>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  Peran Anda ({currentPermissions.title}) diatur secara resmi oleh Super Admin / Program Director. Hanya Super Admin yang berhak mengubah wewenang pengguna di sistem DFW melalui Tab Staff.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Active Role Card Highlight */}
           <div className={`p-4 rounded-xl border ${currentPermissions.badgeBorder} ${currentPermissions.badgeBg} flex items-center justify-between gap-4`}>
             <div className="flex items-center gap-3">
@@ -81,12 +95,18 @@ export const RoleSelectorModal: React.FC<RoleSelectorModalProps> = ({
                 <div
                   key={rKey}
                   onClick={() => {
-                    onSelectRole(rKey);
+                    if (isSuperAdmin) {
+                      onSelectRole(rKey);
+                    }
                   }}
-                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative flex flex-col justify-between ${
+                  className={`p-4 rounded-2xl border-2 transition-all relative flex flex-col justify-between ${
                     isSelected
                       ? 'border-blue-600 bg-blue-50/20 shadow-md ring-2 ring-blue-600/20'
-                      : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/60'
+                      : 'border-slate-200 bg-white'
+                  } ${
+                    isSuperAdmin
+                      ? 'cursor-pointer hover:border-slate-300 hover:bg-slate-50/60'
+                      : 'cursor-not-allowed opacity-90'
                   }`}
                 >
                   <div className="space-y-2">
@@ -230,13 +250,17 @@ export const RoleSelectorModal: React.FC<RoleSelectorModalProps> = ({
         <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
           <div className="text-xs text-slate-500 flex items-center gap-1.5">
             <Info className="w-4 h-4 text-blue-600 shrink-0" />
-            <span>Peran yang dipilih tersimpan di sesi lokal browser Anda.</span>
+            <span>
+              {isSuperAdmin
+                ? 'Pilih salah satu peran di atas untuk menguji tampilan MONEV.'
+                : 'Role ditentukan secara konsisten oleh Super Admin DFW.'}
+            </span>
           </div>
           <button
             onClick={onClose}
-            className="py-2 px-5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+            className="py-2 px-5 bg-slate-900 hover:bg-black text-white font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
           >
-            Terapkan Peran Ini
+            {isSuperAdmin ? 'Terapkan Peran Ini' : 'Tutup Panduan RBAC'}
           </button>
         </div>
       </div>
