@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ProjectDocument, Project } from '../types';
+import { ProjectDocument, Project, UserRoleType } from '../types';
 import {
   Search,
   RotateCcw,
@@ -48,6 +48,7 @@ interface DocumentsTabProps {
   onUpdateDocuments: (newDocs: ProjectDocument[]) => void;
   onRefresh: () => void;
   initialProjectFilter?: string;
+  userRole?: UserRoleType;
 }
 
 export const DocumentsTab: React.FC<DocumentsTabProps> = ({
@@ -56,7 +57,9 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
   onUpdateDocuments,
   onRefresh,
   initialProjectFilter = '',
+  userRole = 'super_admin',
 }) => {
+  const isReadOnly = userRole === 'donor_viewer';
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [projectFilter, setProjectFilter] = useState(initialProjectFilter);
@@ -468,19 +471,21 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
           >
             <RotateCcw className="w-4 h-4" /> Refresh
           </button>
-          <button
-            onClick={() => {
-              setStagedFiles([]);
-              setUploadProject(projects[0]?.name || '');
-              setUploadCategory('TOR');
-              setUploadDesc('');
-              setUploadError(null);
-              setIsUploadOpen(true);
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-2 px-4 rounded-xl shadow-xs hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer h-9"
-          >
-            <CloudUpload className="w-4 h-4" /> Unggah Dokumen
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={() => {
+                setStagedFiles([]);
+                setUploadProject(projects[0]?.name || '');
+                setUploadCategory('TOR');
+                setUploadDesc('');
+                setUploadError(null);
+                setIsUploadOpen(true);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-2 px-4 rounded-xl shadow-xs hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer h-9"
+            >
+              <CloudUpload className="w-4 h-4" /> Unggah Dokumen
+            </button>
+          )}
         </div>
       </div>
 
@@ -602,22 +607,24 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
                       {getFileIcon(doc.mimeType, doc.fileName)}
                     </div>
                     {/* Size & Action tag */}
-                    <div className="flex gap-1.5 shrink-0">
-                      <button
-                        onClick={(e) => openEditModal(doc, e)}
-                        className="p-1 px-2 hover:bg-amber-50 text-slate-400 hover:text-amber-700 border border-transparent hover:border-amber-200 rounded-lg transition-all"
-                        title="Edit detail berkas"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteDoc(doc.id, doc.fileName, e)}
-                        className="p-1 px-2 hover:bg-rose-50 text-slate-400 hover:text-rose-750 border border-transparent hover:border-rose-200 rounded-lg transition-all"
-                        title="Hapus berkas"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    {!isReadOnly && (
+                      <div className="flex gap-1.5 shrink-0">
+                        <button
+                          onClick={(e) => openEditModal(doc, e)}
+                          className="p-1 px-2 hover:bg-amber-50 text-slate-400 hover:text-amber-700 border border-transparent hover:border-amber-200 rounded-lg transition-all"
+                          title="Edit detail berkas"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteDoc(doc.id, doc.fileName, e)}
+                          className="p-1 px-2 hover:bg-rose-50 text-slate-400 hover:text-rose-750 border border-transparent hover:border-rose-200 rounded-lg transition-all"
+                          title="Hapus berkas"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1">

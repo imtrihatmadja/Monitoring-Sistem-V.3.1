@@ -545,7 +545,7 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
             </div>
             {permissions.canManageProjects && (
               <button
-                onClick={onEditProjectClick}
+                onClick={() => onEditProjectClick(project.id)}
                 className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer"
               >
                 Atur Tim →

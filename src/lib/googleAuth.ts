@@ -1,59 +1,75 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
+import type { User } from 'firebase/auth';
 
-// Initialize Firebase App safely to prevent crash in sandboxed iframe environments
 let app: any = null;
-export let auth: any = null;
+let auth: any = null;
+let cachedAccessToken: string | null = null;
+let isSigningIn = false;
 
-try {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-} catch (e) {
-  console.warn('[GoogleAuth] Firebase failed to initialize (usually due to iframe sandbox restrictions):', e);
+// Lazy getter for Firebase Auth instance
+async function getAuthInstance() {
+  if (auth) return auth;
+  try {
+    const { initializeApp, getApps } = await import('firebase/app');
+    const { getAuth } = await import('firebase/auth');
+    const firebaseConfig = (await import('../../firebase-applet-config.json')).default;
+
+    const apps = getApps();
+    app = apps.length > 0 ? apps[0] : initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    return auth;
+  } catch (e) {
+    console.warn('[GoogleAuth] Firebase failed to initialize lazily:', e);
+    return null;
+  }
 }
 
-// Setup Google Auth Provider with Google Drive & Profile Scopes
-const provider = new GoogleAuthProvider();
-provider.addScope('https://www.googleapis.com/auth/drive.file');
-provider.addScope('https://www.googleapis.com/auth/userinfo.email');
-provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
-
-let isSigningIn = false;
-let cachedAccessToken: string | null = null;
-
 // Initialize auth state listener.
-export const initAuth = (
+export const initAuth = async (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
-  if (!auth) {
+  try {
+    const firebaseAuth = await getAuthInstance();
+    if (!firebaseAuth) {
+      if (onAuthFailure) onAuthFailure();
+      return () => {};
+    }
+    const { onAuthStateChanged } = await import('firebase/auth');
+    return onAuthStateChanged(firebaseAuth, async (user: User | null) => {
+      if (user) {
+        if (cachedAccessToken) {
+          if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
+        } else if (!isSigningIn) {
+          if (onAuthFailure) onAuthFailure();
+        }
+      } else {
+        cachedAccessToken = null;
+        if (onAuthFailure) onAuthFailure();
+      }
+    });
+  } catch (err) {
+    console.warn('[GoogleAuth] initAuth error:', err);
     if (onAuthFailure) onAuthFailure();
     return () => {};
   }
-  return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        // If there's no cached token, user needs to re-authenticate or click connect to get provider credentials.
-        if (onAuthFailure) onAuthFailure();
-      }
-    } else {
-      cachedAccessToken = null;
-      if (onAuthFailure) onAuthFailure();
-    }
-  });
 };
 
 // Initiate Google Popup Sign In Flow
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
-  if (!auth) {
+  const firebaseAuth = await getAuthInstance();
+  if (!firebaseAuth) {
     throw new Error('Google Authentication service is unavailable in this environment.');
   }
   try {
     isSigningIn = true;
-    const result = await signInWithPopup(auth, provider);
+    const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+    
+    const provider = new GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/drive.file');
+    provider.addScope('https://www.googleapis.com/auth/userinfo.email');
+    provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+
+    const result = await signInWithPopup(firebaseAuth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
       throw new Error('Gagal mendapatkan token akses Drive dari Google Auth.');
@@ -78,6 +94,15 @@ export const setAccessToken = (token: string | null) => {
 };
 
 export const logout = async () => {
-  await auth.signOut();
+  try {
+    const firebaseAuth = await getAuthInstance();
+    if (firebaseAuth) {
+      const { signOut } = await import('firebase/auth');
+      await signOut(firebaseAuth);
+    }
+  } catch (err) {
+    console.warn('[GoogleAuth] Logout error:', err);
+  }
   cachedAccessToken = null;
 };
+

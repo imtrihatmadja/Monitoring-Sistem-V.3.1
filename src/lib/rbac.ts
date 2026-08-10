@@ -117,6 +117,11 @@ export function getProjectEffectiveRole(
     return 'super_admin';
   }
 
+  // Donor Viewer retains donor_viewer access globally (View Only)
+  if (globalRole === 'donor_viewer') {
+    return 'donor_viewer';
+  }
+
   if (!project) return globalRole;
 
   const cleanStaffId = staffId ? staffId.trim().toLowerCase() : '';
@@ -151,8 +156,8 @@ export function isUserAssignedToProject(
   staffId?: string,
   staffName?: string
 ): boolean {
-  // 1. Super Admin sees ALL projects
-  if (globalRole === 'super_admin') {
+  // Super Admin and Donor/Viewer see ALL projects
+  if (globalRole === 'super_admin' || globalRole === 'donor_viewer') {
     return true;
   }
 

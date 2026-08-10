@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Beneficiary, Project, Activity, BeneficiaryRegistration, SubActivity } from '../types';
+import { Beneficiary, Project, Activity, BeneficiaryRegistration, SubActivity, UserRoleType } from '../types';
 import { SupabaseSync } from '../lib/supabaseSync';
 import { safeStorage } from '../lib/safeStorage';
 import {
@@ -40,6 +40,7 @@ interface BeneficiaryTabProps {
   projects: Project[];
   activities: Activity[];
   subActivities?: SubActivity[];
+  userRole?: UserRoleType;
   onUpdateBeneficiaries: (newList: Beneficiary[]) => void;
   onUpdateProjects?: (newList: Project[]) => void;
   onUpdateActivities?: (newList: Activity[]) => void;
@@ -113,6 +114,7 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
   projects,
   activities,
   subActivities,
+  userRole = 'super_admin',
   onUpdateBeneficiaries,
   onUpdateProjects,
   onUpdateActivities,
@@ -121,6 +123,7 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
   onOpenEditModal,
   onOpenDetailModal,
 }) => {
+  const isReadOnly = userRole === 'donor_viewer';
   const [selectedProjectId, setSelectedProjectId] = useState(() => {
     return safeStorage.getItem('dfw_ben_selected_project_id') || '';
   });
@@ -1064,16 +1067,18 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
 
           {/* Action Buttons (Import, Export, Tambah Manual) */}
           <div className="flex flex-wrap items-center gap-1.5 justify-end">
-            <button
-              onClick={() => {
-                setImportFeedback({ message: '', type: '' });
-                setStagedRows(null);
-                setIsImportModalOpen(true);
-              }}
-              className="bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 font-extrabold text-xs py-1.5 px-3 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer h-[34px]"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Import Excel
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={() => {
+                  setImportFeedback({ message: '', type: '' });
+                  setStagedRows(null);
+                  setIsImportModalOpen(true);
+                }}
+                className="bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 font-extrabold text-xs py-1.5 px-3 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer h-[34px]"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Import Excel
+              </button>
+            )}
             <button
               onClick={handleExportToExcel}
               disabled={filteredBeneficiaries.length === 0}
@@ -1088,12 +1093,14 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
             >
               Template
             </button>
-            <button
-              onClick={() => onOpenAddModal(selectedProjectId || toolbarProjectFilter)}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-1.5 px-4 rounded-lg shadow-xs transition-all flex items-center gap-1 cursor-pointer h-[34px]"
-            >
-              ＋ Tambah Manual
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={() => onOpenAddModal(selectedProjectId || toolbarProjectFilter)}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-1.5 px-4 rounded-lg shadow-xs transition-all flex items-center gap-1 cursor-pointer h-[34px]"
+              >
+                ＋ Tambah Manual
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1310,13 +1317,15 @@ export const BeneficiaryTab: React.FC<BeneficiaryTabProps> = ({
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={() => onOpenEditModal(b)}
-                            className="p-1.5 text-slate-400 hover:text-amber-600 bg-slate-50 border border-slate-200 rounded-lg transition-all cursor-pointer"
-                            title="Edit Data Pribadi"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
+                          {!isReadOnly && (
+                            <button
+                              onClick={() => onOpenEditModal(b)}
+                              className="p-1.5 text-slate-400 hover:text-amber-600 bg-slate-50 border border-slate-200 rounded-lg transition-all cursor-pointer"
+                              title="Edit Data Pribadi"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

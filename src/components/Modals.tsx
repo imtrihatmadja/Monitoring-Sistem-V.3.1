@@ -1753,7 +1753,7 @@ export const StaffTasksModal: React.FC<StaffTasksModalProps> = ({
                       let statusStyle = 'bg-slate-100 text-slate-600 border-slate-200';
                       if (sub.status === 'Selesai') {
                         statusStyle = 'bg-emerald-50 text-emerald-800 border-emerald-100';
-                      } else if (sub.status === 'Sedang Dikerjakan' || sub.status === 'Sedang Berjalan') {
+                      } else if (sub.status === 'Sedang Dikerjakan' || (sub.status as string) === 'Sedang Berjalan') {
                         statusStyle = 'bg-sky-50 text-sky-800 border-sky-100';
                       } else if (sub.status === 'Tertunda') {
                         statusStyle = 'bg-rose-50 text-rose-800 border-rose-100';
@@ -1959,7 +1959,7 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
                   let statusBg = 'bg-slate-50 text-slate-500 border-slate-150';
                   if (item.status === 'Belum Mulai') {
                     statusBg = 'bg-rose-50 text-rose-700 border-rose-150';
-                  } else if (item.status === 'Sedang Dikerjakan' || item.status === 'Sedang Berjalan') {
+                  } else if (item.status === 'Sedang Dikerjakan' || (item.status as string) === 'Sedang Berjalan') {
                     statusBg = 'bg-amber-50 text-amber-700 border-amber-200';
                   } else if (item.status === 'Selesai') {
                     statusBg = 'bg-emerald-50 text-emerald-800 border-emerald-100';

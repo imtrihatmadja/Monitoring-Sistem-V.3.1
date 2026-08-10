@@ -23,6 +23,7 @@ import { ProjectsTab } from './components/ProjectsTab';
 import { IssuesTab } from './components/IssuesTab';
 import { BeneficiaryTab } from './components/BeneficiaryTab';
 import { StaffTab } from './components/StaffTab';
+import { UserRoleManagementTab } from './components/UserRoleManagementTab';
 import { ProjectForm } from './components/ProjectForm';
 import { ProjectDetailTab } from './components/ProjectDetailTab';
 import { DocumentsTab } from './components/DocumentsTab';
@@ -67,6 +68,7 @@ import {
   Copy,
   Check,
   ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function App() {
@@ -161,32 +163,84 @@ export default function App() {
 
   // Navigation state
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'projects' | 'beneficiary' | 'issues' | 'staff' | 'add_project' | 'edit_project' | 'project_detail' | 'archive' | 'documents' | 'supabase'
+    'dashboard' | 'projects' | 'beneficiary' | 'issues' | 'staff' | 'role_settings' | 'add_project' | 'edit_project' | 'project_detail' | 'archive' | 'documents' | 'supabase'
   >('dashboard');
   
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [docProjectFilter, setDocProjectFilter] = useState<string>('');
 
   // Active Staff Member & RBAC Role-Based Access Control State
-  const [activeStaffId, setActiveStaffId] = useState<string>(() => {
-    return localStorage.getItem('dfw_active_staff_id') || 'st-01';
+  const [activeStaffId, setActiveStaffId] = useState<string | null>(() => {
+    return localStorage.getItem('dfw_active_staff_id') || null;
   });
 
-  const activeStaff = useMemo(() => {
-    return staff.find((s) => s.id === activeStaffId) || staff[0] || {
-      id: 'st-01',
-      name: 'Imam Trihatmadja',
-      role: 'Program Director',
-      systemRole: 'super_admin' as UserRoleType,
-      status: 'active'
-    };
-  }, [staff, activeStaffId]);
+  const [activeRoleOverride, setActiveRoleOverride] = useState<UserRoleType | null>(() => {
+    const saved = localStorage.getItem('dfw_active_role');
+    if (saved && (saved === 'super_admin' || saved === 'project_coordinator' || saved === 'field_officer' || saved === 'donor_viewer')) {
+      return saved as UserRoleType;
+    }
+    return null;
+  });
 
-  const currentRole: UserRoleType = activeStaff.systemRole || 'super_admin';
+  const isLoggedIn = Boolean(activeStaffId);
+
+  const activeStaff: Staff = useMemo(() => {
+    if (!activeStaffId) {
+      return {
+        id: 'guest',
+        name: 'Tamu / Donor (Viewer)',
+        role: 'Pengunjung Eksternal',
+        systemRole: (activeRoleOverride || 'donor_viewer') as UserRoleType,
+        status: 'active' as const,
+        email: 'donor.viewer@dfw.or.id',
+        lastLoginAt: undefined
+      };
+    }
+    const found = staff.find((s) => s.id === activeStaffId);
+    if (found) {
+      return {
+        ...found,
+        systemRole: activeRoleOverride || found.systemRole || 'field_officer'
+      };
+    }
+    return {
+      id: 'guest',
+      name: 'Tamu / Donor (Viewer)',
+      role: 'Pengunjung Eksternal',
+      systemRole: (activeRoleOverride || 'donor_viewer') as UserRoleType,
+      status: 'active' as const,
+      email: 'donor.viewer@dfw.or.id',
+      lastLoginAt: undefined
+    };
+  }, [staff, activeStaffId, activeRoleOverride]);
+
+  const LockIcon = Lock as any;
+
+  const currentRole: UserRoleType = useMemo(() => {
+    if (activeRoleOverride) {
+      return activeRoleOverride;
+    }
+    if (activeStaffId) {
+      const found = staff.find((s) => s.id === activeStaffId);
+      if (found?.systemRole) return found.systemRole;
+      return 'super_admin';
+    }
+    return 'donor_viewer';
+  }, [activeRoleOverride, activeStaffId, staff]);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isGoogleAuthModalOpen, setIsGoogleAuthModalOpen] = useState(false);
   const currentPermissions = getRolePermissions(currentRole);
+
+  // Automatically adjust view if current tab is restricted under newly selected role
+  useEffect(() => {
+    if (!currentPermissions.canManageProjects && (activeTab === 'add_project' || activeTab === 'edit_project')) {
+      setActiveTab('projects');
+    }
+    if (!currentPermissions.canManageUsers && (activeTab === 'supabase' || activeTab === 'role_settings')) {
+      setActiveTab('dashboard');
+    }
+  }, [currentRole, activeTab, currentPermissions]);
 
 
   // Reusable custom confirm modal state to replace iframe-incompatible window.confirm
@@ -800,6 +854,13 @@ export default function App() {
   const updateStaffInStorage = (newList: Staff[]) => {
     setStaff(newList);
     localStorage.setItem('dfw_staff', JSON.stringify(newList));
+    if (activeStaffId) {
+      const currentActiveMember = newList.find(s => s.id === activeStaffId);
+      if (currentActiveMember?.systemRole) {
+        setActiveRoleOverride(currentActiveMember.systemRole);
+        localStorage.setItem('dfw_active_role', currentActiveMember.systemRole);
+      }
+    }
     if (dbIsConfigured) {
       const deleted = staff.filter(s => !newList.some(item => item.id === s.id));
       deleted.forEach(s => handleSyncResult(SupabaseSync.deleteStaff(s.id), "Penghapusan staff"));
@@ -2312,10 +2373,10 @@ export default function App() {
       const completed = stActs.filter((a) => a.status === 'Selesai').length +
                         stSubActs.filter((s) => s.status === 'Selesai').length;
 
-      const running = stActs.filter((a) => a.status === 'Sedang Berjalan' || a.status === 'Sedang Berjalan').length +
+      const running = stActs.filter((a) => a.status === 'Sedang Berjalan' || (a.status as string) === 'Sedang Dikerjakan').length +
                       stSubActs.filter((s) => s.status === 'Sedang Dikerjakan').length;
 
-      const delayed = stActs.filter((a) => a.status === 'Tertunda' || a.status === 'Terlambat').length +
+      const delayed = stActs.filter((a) => a.status === 'Tertunda' || (a.status as string) === 'Terlambat').length +
                       stSubActs.filter((s) => s.status === 'Tertunda').length;
 
       const notStarted = stActs.filter((a) => a.status === 'Belum Mulai').length +
@@ -2325,7 +2386,7 @@ export default function App() {
 
       // Overdues
       const actsOverdues = stActs.filter((a) => {
-        if (a.status === 'Tertunda' || a.status === 'Terlambat') return true;
+        if (a.status === 'Tertunda' || (a.status as string) === 'Terlambat') return true;
         if (a.status !== 'Selesai' && a.dueDate) {
           const due = new Date(a.dueDate).getTime();
           const now = new Date().getTime();
@@ -2567,7 +2628,7 @@ export default function App() {
       `;
 
       // Calculate critical delayed activities
-      const delayedActivities = rangedActivities.filter(a => a.status === 'Terlambat' || (a.status !== 'Selesai' && a.dueDate && new Date(a.dueDate).getTime() < new Date().getTime()));
+      const delayedActivities = rangedActivities.filter(a => (a.status as string) === 'Terlambat' || (a.status !== 'Selesai' && a.dueDate && new Date(a.dueDate).getTime() < new Date().getTime()));
       
       const ceoExceptionsCard = `
         <div class="section-card avoid-break" style="border-left: 4px solid #dc2626; background: #fef2f2;">
@@ -2880,6 +2941,24 @@ export default function App() {
             <span>Arsip Proyek Selesai</span>
           </button>
 
+          {currentPermissions.canManageUsers && (
+            <button
+              onClick={() => {
+                setActiveTab('role_settings');
+                setSelectedProjectId('');
+              }}
+              className={`w-full py-2.5 px-3 rounded-lg flex items-center gap-3 cursor-pointer text-left transition-all ${
+                activeTab === 'role_settings'
+                  ? 'bg-purple-600 text-white font-bold'
+                  : 'hover:bg-slate-800 hover:text-slate-100 text-slate-400'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 shrink-0 text-purple-400" />
+              <span className="flex-1">Pengaturan User Role</span>
+              <span className="text-[9px] font-black bg-purple-900/90 text-purple-200 px-1.5 py-0.5 rounded border border-purple-700/80">ADMIN</span>
+            </button>
+          )}
+
           <button
             onClick={() => {
               setActiveTab('supabase');
@@ -2897,32 +2976,97 @@ export default function App() {
         </nav>
 
         {/* User identification & RBAC Role Switcher footer */}
-        <div className="m-3 p-3 border border-slate-800 bg-slate-950/80 rounded-2xl shadow-inner space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-blue-600 border border-blue-500/40 flex items-center justify-center font-black text-white text-xs shrink-0 select-none">
-                {activeStaff.name.charAt(0)}
+        {!isLoggedIn ? (
+          <div className="m-3 p-3.5 border border-slate-800 bg-slate-950/90 rounded-2xl shadow-inner space-y-3">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className={`text-[10px] font-black py-0.5 px-2 rounded ${currentPermissions.badgeBg} ${currentPermissions.badgeText} border ${currentPermissions.badgeBorder} flex items-center gap-1`}>
+                  <span>{currentPermissions.badgeIcon}</span> {currentPermissions.title}
+                </span>
+                <button
+                  onClick={() => setIsRoleModalOpen(true)}
+                  className="text-[10px] text-blue-400 hover:text-white font-bold bg-blue-950/80 hover:bg-blue-600 px-2 py-0.5 rounded-lg border border-blue-800 transition-all cursor-pointer shrink-0"
+                  title="Simulasi Akses Role"
+                >
+                  Ubah Role
+                </button>
               </div>
-              <div className="min-w-0">
-                <span className="font-extrabold text-slate-100 block truncate text-xs leading-tight">{activeStaff.name}</span>
-                <span className="text-[10px] text-slate-400 block font-medium truncate">{activeStaff.role}</span>
-              </div>
+              <p className="text-[11px] text-slate-400 font-medium leading-tight pt-1">
+                {currentRole === 'donor_viewer'
+                  ? 'Anda berada dalam mode pengunjung. Silakan login dengan Google atau ubah role simulasi di atas.'
+                  : `Role aktif saat ini dikunci sebagai ${currentPermissions.title}. Anda dapat berganti role kapan saja.`}
+              </p>
             </div>
-          </div>
 
-          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1.5">
-            <span className={`text-[9px] font-extrabold py-0.5 px-2 rounded-md ${currentPermissions.badgeBg} ${currentPermissions.badgeText} border ${currentPermissions.badgeBorder} truncate`}>
-              {currentPermissions.badgeIcon} {currentPermissions.title}
-            </span>
             <button
-              onClick={() => setIsRoleModalOpen(true)}
-              className="text-[10px] text-blue-400 hover:text-white font-bold bg-blue-950/80 hover:bg-blue-600 px-2 py-0.5 rounded-lg border border-blue-800 transition-all cursor-pointer shrink-0"
-              title="Matriks RBAC & Simulasi Akses"
+              onClick={() => setIsGoogleAuthModalOpen(true)}
+              className="w-full py-2.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white border border-blue-400/40 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md active:scale-98"
+              title="Login dengan Google Account"
             >
-              Ubah Role
+              <svg className="w-4 h-4 shrink-0 bg-white rounded-full p-0.5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+              </svg>
+              <span>Login dengan Google</span>
             </button>
           </div>
-        </div>
+        ) : (
+          <div className="m-3 p-3 border border-slate-800 bg-slate-950/80 rounded-2xl shadow-inner space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 border border-blue-500/40 flex items-center justify-center font-black text-white text-xs shrink-0 select-none">
+                  {activeStaff.name.charAt(0)}
+                </div>
+                <div className="min-w-0">
+                  <span className="font-extrabold text-slate-100 block truncate text-xs leading-tight">{activeStaff.name}</span>
+                  <span className="text-[10px] text-slate-400 block font-medium truncate">{activeStaff.role}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1.5">
+              <span className={`text-[9px] font-extrabold py-0.5 px-2 rounded-md ${currentPermissions.badgeBg} ${currentPermissions.badgeText} border ${currentPermissions.badgeBorder} truncate`}>
+                {currentPermissions.badgeIcon} {currentPermissions.title}
+              </span>
+              <button
+                onClick={() => setIsRoleModalOpen(true)}
+                className="text-[10px] text-blue-400 hover:text-white font-bold bg-blue-950/80 hover:bg-blue-600 px-2 py-0.5 rounded-lg border border-blue-800 transition-all cursor-pointer shrink-0"
+                title="Simulasi Akses Role"
+              >
+                Ubah Role
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between pt-1 gap-2 border-t border-slate-800/60">
+              <button
+                onClick={() => setIsGoogleAuthModalOpen(true)}
+                className="text-[10px] font-bold text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                title="Ganti akun Google terautentikasi"
+              >
+                <span>🔄 Ganti Akun</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveStaffId(null);
+                  localStorage.removeItem('dfw_active_staff_id');
+                  setActiveRoleOverride('donor_viewer');
+                  localStorage.setItem('dfw_active_role', 'donor_viewer');
+                  setSyncToast('success');
+                  setSyncToastMsg('Anda telah keluar. Sesi beralih ke Mode Donor (View Only).');
+                  setTimeout(() => {
+                    setSyncToast('');
+                    setSyncToastMsg('');
+                  }, 2500);
+                }}
+                className="text-[10px] font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer hover:underline"
+              >
+                <span>🚪 Logout</span>
+              </button>
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* CORE DISPLAY STAGE */}
@@ -2939,160 +3083,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Google Login Trigger Button */}
-            <button
-              onClick={() => setIsGoogleAuthModalOpen(true)}
-              className="py-1 px-2.5 sm:px-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs text-slate-800"
-              title="Login dengan Google Account (Akses berbasis email)"
-            >
-              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-              </svg>
-              <span className="hidden md:inline">Google Auth</span>
-              {activeStaff.lastLoginAt && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" title="Terautentikasi Google" />
-              )}
-            </button>
-
-            {/* Account Profile / Active User Switcher Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="py-1 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shadow-2xs group"
-                title="Beralih akun pengguna / Lihat status role"
-              >
-                <div className="w-6 h-6 rounded-lg bg-slate-900 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-xs">
-                  {activeStaff.name.charAt(0)}
-                </div>
-                <div className="text-left hidden sm:block min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-extrabold text-slate-800 text-[11px] truncate">{activeStaff.name}</span>
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border flex items-center gap-1 ${currentPermissions.badgeBg} ${currentPermissions.badgeText} ${currentPermissions.badgeBorder}`}>
-                      {currentRole !== 'super_admin' && <Lock className="w-2.5 h-2.5 text-slate-500 shrink-0" />}
-                      <span>{currentPermissions.title}</span>
-                    </span>
-                  </div>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform" />
-              </button>
-
-              {/* User Dropdown Menu */}
-              {isUserMenuOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in duration-150">
-                  <div className="p-3.5 bg-slate-900 text-white space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Status Sesi Pengguna</p>
-                        <p className="text-xs font-extrabold text-white truncate">{activeStaff.name}</p>
-                      </div>
-                      <span className={`text-[9px] font-extrabold py-0.5 px-2 rounded-md border shrink-0 ${currentPermissions.badgeBg} ${currentPermissions.badgeText} ${currentPermissions.badgeBorder}`}>
-                        {currentPermissions.badgeIcon} {currentPermissions.title}
-                      </span>
-                    </div>
-
-                    {activeStaff.email && (
-                      <p className="text-[10px] text-slate-400 font-mono truncate">
-                        📧 {activeStaff.email}
-                      </p>
-                    )}
-
-                    {currentRole !== 'super_admin' && (
-                      <div className="pt-1 flex items-center gap-1 text-[10px] text-amber-300 font-medium">
-                        <Lock className="w-3 h-3 text-amber-400 shrink-0" />
-                        <span>Role terkunci sesuai ketetapan Super Admin</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-2 space-y-1 max-h-60 overflow-y-auto">
-                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-2 py-1">
-                      Pilih Akun Staf (Beralih Sesi):
-                    </p>
-                    {staff.map((st) => {
-                      const sRoleKey = st.systemRole || 'field_officer';
-                      const stPermissions = getRolePermissions(sRoleKey as UserRoleType);
-                      const isSelected = st.id === activeStaff.id;
-
-                      return (
-                        <div
-                          key={st.id}
-                          onClick={() => {
-                            setActiveStaffId(st.id);
-                            localStorage.setItem('dfw_active_staff_id', st.id);
-                            setIsUserMenuOpen(false);
-                            setSyncToast('success');
-                            setTimeout(() => setSyncToast(''), 1500);
-                          }}
-                          className={`p-2 rounded-xl transition-all cursor-pointer flex items-center justify-between gap-2 ${
-                            isSelected
-                              ? 'bg-blue-50/80 border border-blue-200 font-bold shadow-2xs'
-                              : 'hover:bg-slate-50 border border-transparent'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0">
-                              {st.name.charAt(0)}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-slate-800 truncate">{st.name}</p>
-                              <p className="text-[10px] text-slate-400 font-medium truncate">{st.role}</p>
-                            </div>
-                          </div>
-                          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border shrink-0 ${stPermissions.badgeBg} ${stPermissions.badgeText} ${stPermissions.badgeBorder}`}>
-                            {stPermissions.badgeIcon} {stPermissions.title.split('/')[0]}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="p-2.5 bg-slate-50 border-t border-slate-100 space-y-2">
-                    {currentRole === 'super_admin' ? (
-                      <div className="flex items-center justify-between text-[10px] font-extrabold">
-                        <button
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            setActiveTab('staff');
-                          }}
-                          className="text-slate-700 hover:text-black flex items-center gap-1 cursor-pointer hover:underline"
-                        >
-                          👑 Kelola Role di Tab Staff
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            setIsRoleModalOpen(true);
-                          }}
-                          className="text-blue-600 hover:underline cursor-pointer"
-                        >
-                          🧪 Simulasi RBAC →
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
-                        <span className="flex items-center gap-1 text-slate-600">
-                          <Lock className="w-3 h-3 text-slate-400" />
-                          Role dikelola Admin
-                        </span>
-                        <button
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            setIsRoleModalOpen(true);
-                          }}
-                          className="text-blue-600 hover:underline font-extrabold cursor-pointer"
-                        >
-                          👁️ Lihat Matriks RBAC →
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 py-1 px-2.5 rounded-full border border-emerald-100 inline-flex items-center gap-1">
               <span>🟢</span> Realtime Database ON
             </span>
@@ -3286,6 +3276,7 @@ export default function App() {
               projects={projects}
               activities={activities}
               subActivities={subActivities}
+              userRole={currentRole}
               onUpdateBeneficiaries={updateBeneficiariesInStorage}
               onUpdateProjects={updateProjectsInStorage}
               onUpdateActivities={updateActivitiesInStorage}
@@ -3311,6 +3302,7 @@ export default function App() {
               issues={issues}
               projects={projects}
               activities={activities}
+              userRole={currentRole}
               onUpdateIssues={updateIssuesInStorage}
               onRefresh={() => {
                 setSyncToast('success');
@@ -3332,6 +3324,16 @@ export default function App() {
                 setSelectedStaffTasksName(staffName);
                 setIsStaffTasksModalOpen(true);
               }}
+            />
+          )}
+
+          {activeTab === 'role_settings' && (
+            <UserRoleManagementTab
+              staffList={staff}
+              projects={projects}
+              currentRole={currentRole}
+              onUpdateStaffList={updateStaffInStorage}
+              onUpdateProjects={updateProjectsInStorage}
             />
           )}
 
@@ -3370,12 +3372,16 @@ export default function App() {
                           <td className="py-3 px-4 font-mono text-slate-400">{p.archivedAt || '—'}</td>
                           <td className="py-3 px-4 text-slate-400">{p.archoredBy || 'Imam T.'}</td>
                           <td className="py-3 px-4 text-center">
-                            <button
-                              onClick={() => handleRestoreProject(p.id)}
-                              className="text-xs bg-slate-100 hover:bg-slate-200 py-1 px-2.5 rounded-md border text-slate-600 cursor-pointer"
-                            >
-                              Pulihkan Proyek
-                            </button>
+                            {currentPermissions.canManageProjects ? (
+                              <button
+                                onClick={() => handleRestoreProject(p.id)}
+                                className="text-xs bg-slate-100 hover:bg-slate-200 py-1 px-2.5 rounded-md border text-slate-600 cursor-pointer"
+                              >
+                                Pulihkan Proyek
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 italic">View Only</span>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -3390,6 +3396,7 @@ export default function App() {
             <DocumentsTab
               documents={documents}
               projects={projects}
+              userRole={currentRole}
               onUpdateDocuments={updateDocumentsInStorage}
               initialProjectFilter={docProjectFilter}
               onRefresh={() => {
@@ -4488,28 +4495,41 @@ ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_
         activeStaff={activeStaff}
         onClose={() => setIsGoogleAuthModalOpen(false)}
         onGoogleLoginSuccess={(matchedStaff) => {
-          const updatedStaffList = staff.map((s) => (s.id === matchedStaff.id ? matchedStaff : s));
+          const targetRole = matchedStaff.systemRole || 'field_officer';
+          const updatedStaffList = staff.map((s) => (s.id === matchedStaff.id ? { ...s, systemRole: targetRole } : s));
           updateStaffInStorage(updatedStaffList);
           setActiveStaffId(matchedStaff.id);
           localStorage.setItem('dfw_active_staff_id', matchedStaff.id);
+          setActiveRoleOverride(targetRole);
+          localStorage.setItem('dfw_active_role', targetRole);
           setIsGoogleAuthModalOpen(false);
           setSyncToast('success');
-          setTimeout(() => setSyncToast(''), 2000);
+          setSyncToastMsg(`Selamat datang kembali, ${matchedStaff.name}! Sesi terautentikasi (${getRolePermissions(targetRole).title}).`);
+          setTimeout(() => {
+            setSyncToast('');
+            setSyncToastMsg('');
+          }, 3000);
         }}
       />
 
       <RoleSelectorModal
         isOpen={isRoleModalOpen}
         currentRole={currentRole}
-        isSuperAdmin={currentRole === 'super_admin'}
+        isSuperAdmin={true}
         onClose={() => setIsRoleModalOpen(false)}
         onSelectRole={(r) => {
-          if (currentRole === 'super_admin' && activeStaff) {
-            const updated = staff.map((s) => s.id === activeStaff.id ? { ...s, systemRole: r } : s);
+          setActiveRoleOverride(r);
+          localStorage.setItem('dfw_active_role', r);
+          if (activeStaffId && staff.length > 0) {
+            const updated = staff.map((s) => s.id === activeStaffId ? { ...s, systemRole: r } : s);
             updateStaffInStorage(updated);
-            setSyncToast('success');
-            setTimeout(() => setSyncToast(''), 1500);
           }
+          setSyncToast('success');
+          setSyncToastMsg(`Peran aktif berhasil diubah dan terkunci sebagai: ${getRolePermissions(r).title}`);
+          setTimeout(() => {
+            setSyncToast('');
+            setSyncToastMsg('');
+          }, 3000);
           setIsRoleModalOpen(false);
         }}
       />

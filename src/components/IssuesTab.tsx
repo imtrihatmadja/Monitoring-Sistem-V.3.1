@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Issue, Project, Activity, IssueUpdate } from '../types';
+import { Issue, Project, Activity, IssueUpdate, UserRoleType } from '../types';
 import { SupabaseSync } from '../lib/supabaseSync';
 import { 
   Search, RotateCcw, Plus, Eye, AlertTriangle, CheckCircle2, 
@@ -14,6 +14,7 @@ interface IssuesTabProps {
   onUpdateIssues: (newIssues: Issue[]) => void;
   onRefresh: () => void;
   allCategories: string[];
+  userRole?: UserRoleType;
 }
 
 export const IssuesTab: React.FC<IssuesTabProps> = ({
@@ -23,7 +24,9 @@ export const IssuesTab: React.FC<IssuesTabProps> = ({
   onUpdateIssues,
   onRefresh,
   allCategories,
+  userRole = 'super_admin',
 }) => {
+  const isReadOnly = userRole === 'donor_viewer';
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -234,13 +237,15 @@ export const IssuesTab: React.FC<IssuesTabProps> = ({
           >
             <RotateCcw className="w-4 h-4" /> Refresh Data
           </button>
-          <button
-            onClick={handleOpenAddForm}
-            id="btn-add-issue"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-2 px-4 rounded-xl shadow-xs hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer h-9"
-          >
-            <Plus className="w-4 h-4" /> Tambah Temuan Isu
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={handleOpenAddForm}
+              id="btn-add-issue"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-2 px-4 rounded-xl shadow-xs hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer h-9"
+            >
+              <Plus className="w-4 h-4" /> Tambah Temuan Isu
+            </button>
+          )}
         </div>
       </div>
 
@@ -453,20 +458,24 @@ export const IssuesTab: React.FC<IssuesTabProps> = ({
                           >
                             <MessageSquare className="w-3" /> Log ({issue.updates ? issue.updates.length : 0})
                           </button>
-                          <button
-                            onClick={(e) => handleOpenEditForm(issue, e)}
-                            className="p-1.5 bg-slate-50 hover:bg-amber-50 text-slate-600 hover:text-amber-700 border border-slate-150 rounded-lg transition-all cursor-pointer"
-                            title="Edit Data Isu"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={(e) => handleDeleteIssue(issue.id, e)}
-                            className="p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-750 border border-slate-150 rounded-lg transition-all cursor-pointer"
-                            title="Hapus Temuan"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {!isReadOnly && (
+                            <>
+                              <button
+                                onClick={(e) => handleOpenEditForm(issue, e)}
+                                className="p-1.5 bg-slate-50 hover:bg-amber-50 text-slate-600 hover:text-amber-700 border border-slate-150 rounded-lg transition-all cursor-pointer"
+                                title="Edit Data Isu"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={(e) => handleDeleteIssue(issue.id, e)}
+                                className="p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-750 border border-slate-150 rounded-lg transition-all cursor-pointer"
+                                title="Hapus Temuan"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

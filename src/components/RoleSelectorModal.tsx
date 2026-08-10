@@ -52,17 +52,15 @@ export const RoleSelectorModal: React.FC<RoleSelectorModalProps> = ({
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-800">
           
-          {!isSuperAdmin && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
-              <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <p className="font-extrabold text-amber-950">Role Pengguna Terkunci Terpusat</p>
-                <p className="text-[11px] text-amber-800 leading-relaxed">
-                  Peran Anda ({currentPermissions.title}) diatur secara resmi oleh Super Admin / Program Director. Hanya Super Admin yang berhak mengubah wewenang pengguna di sistem DFW melalui Tab Staff.
-                </p>
-              </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3.5 text-xs text-blue-900 flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-extrabold text-blue-950">Simulasi Peran Pengguna Interaktif (RBAC)</p>
+              <p className="text-[11px] text-blue-800 leading-relaxed">
+                Pilih salah satu peran di bawah ini untuk mensimulasikan tampilan portal MONEV, hak akses, dan batas wewenang secara langsung. Anda dapat berganti peran kapan saja.
+              </p>
             </div>
-          )}
+          </div>
 
           {/* Active Role Card Highlight */}
           <div className={`p-4 rounded-xl border ${currentPermissions.badgeBorder} ${currentPermissions.badgeBg} flex items-center justify-between gap-4`}>
@@ -94,19 +92,11 @@ export const RoleSelectorModal: React.FC<RoleSelectorModalProps> = ({
               return (
                 <div
                   key={rKey}
-                  onClick={() => {
-                    if (isSuperAdmin) {
-                      onSelectRole(rKey);
-                    }
-                  }}
-                  className={`p-4 rounded-2xl border-2 transition-all relative flex flex-col justify-between ${
+                  onClick={() => onSelectRole(rKey)}
+                  className={`p-4 rounded-2xl border-2 transition-all relative flex flex-col justify-between cursor-pointer hover:border-blue-400 hover:shadow-md ${
                     isSelected
                       ? 'border-blue-600 bg-blue-50/20 shadow-md ring-2 ring-blue-600/20'
                       : 'border-slate-200 bg-white'
-                  } ${
-                    isSuperAdmin
-                      ? 'cursor-pointer hover:border-slate-300 hover:bg-slate-50/60'
-                      : 'cursor-not-allowed opacity-90'
                   }`}
                 >
                   <div className="space-y-2">
