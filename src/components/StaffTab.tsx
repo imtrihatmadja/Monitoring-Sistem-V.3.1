@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { Staff, Activity, Project, SubActivity } from '../types';
+import { Staff, Activity, Project, SubActivity, UserRoleType } from '../types';
+import { getRolePermissions, USER_ROLES } from '../lib/rbac';
 import { 
   Users, 
   ClipboardList, 
@@ -11,7 +12,10 @@ import {
   UserPlus, 
   FileSpreadsheet, 
   X, 
-  Download 
+  Download,
+  Lock,
+  ShieldCheck,
+  Edit3
 } from 'lucide-react';
 
 interface StaffTabProps {
@@ -19,6 +23,7 @@ interface StaffTabProps {
   activities: Activity[];
   projects: Project[];
   subActivities?: SubActivity[];
+  userRole?: UserRoleType;
   onOpenTasksModal: (staffName: string) => void;
   onUpdateStaffList?: (newList: Staff[]) => void;
 }
@@ -28,19 +33,26 @@ export const StaffTab: React.FC<StaffTabProps> = ({
   activities,
   projects,
   subActivities = [],
+  userRole = 'super_admin',
   onOpenTasksModal,
   onUpdateStaffList,
 }) => {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const permissions = getRolePermissions(userRole as UserRoleType);
   
   // Modals visibility states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
-  // Manual Add Form states
+  // Manual Add & Edit Form states
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffRole, setNewStaffRole] = useState('');
+  const [newStaffEmail, setNewStaffEmail] = useState('');
+  const [newStaffSystemRole, setNewStaffSystemRole] = useState<UserRoleType>('field_officer');
   const [newStaffStatus, setNewStaffStatus] = useState<'active' | 'inactive'>('active');
+
+  // Edit Staff Modal State
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
 
   // Excel Import states
   const [stagedRows, setStagedRows] = useState<any[] | null>(null);
@@ -214,6 +226,8 @@ export const StaffTab: React.FC<StaffTabProps> = ({
       id: `staff-${Date.now()}`,
       name: nameTrimmed,
       role: newStaffRole.trim() || 'Staff Anggota',
+      email: newStaffEmail.trim() || undefined,
+      systemRole: newStaffSystemRole,
       status: newStaffStatus,
     };
 
@@ -224,8 +238,64 @@ export const StaffTab: React.FC<StaffTabProps> = ({
     // Reset and close
     setNewStaffName('');
     setNewStaffRole('');
+    setNewStaffEmail('');
+    setNewStaffSystemRole('field_officer');
     setNewStaffStatus('active');
     setIsAddModalOpen(false);
+  };
+
+  const handleOpenEditModal = (st: Staff) => {
+    setEditingStaff(st);
+    setNewStaffName(st.name);
+    setNewStaffRole(st.role || '');
+    setNewStaffEmail(st.email || '');
+    setNewStaffSystemRole(st.systemRole || 'field_officer');
+    setNewStaffStatus(st.status || 'active');
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingStaff) return;
+    if (!newStaffName.trim()) {
+      alert('Nama Lengkap tidak boleh kosong!');
+      return;
+    }
+
+    const updated = staffList.map((s) => {
+      if (s.id === editingStaff.id) {
+        return {
+          ...s,
+          name: newStaffName.trim(),
+          role: newStaffRole.trim() || 'Staff Anggota',
+          email: newStaffEmail.trim() || undefined,
+          systemRole: newStaffSystemRole,
+          status: newStaffStatus,
+        };
+      }
+      return s;
+    });
+
+    if (onUpdateStaffList) {
+      onUpdateStaffList(updated);
+    }
+
+    setEditingStaff(null);
+    setNewStaffName('');
+    setNewStaffRole('');
+    setNewStaffEmail('');
+    setNewStaffSystemRole('field_officer');
+    setNewStaffStatus('active');
+  };
+
+  const handleQuickRoleChange = (staffId: string, newRole: UserRoleType) => {
+    const updated = staffList.map((s) => {
+      if (s.id === staffId) {
+        return { ...s, systemRole: newRole };
+      }
+      return s;
+    });
+    if (onUpdateStaffList) {
+      onUpdateStaffList(updated);
+    }
   };
 
   // Handlers for excel import
@@ -368,23 +438,32 @@ export const StaffTab: React.FC<StaffTabProps> = ({
           </div>
           <div className="flex items-center gap-2 self-end sm:self-center">
             {/* Action Buttons to Add Personnel */}
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              title="Tambah Staff Manual"
-              className="py-1.5 px-3.5 bg-blue-50 hover:bg-blue-100 text-blue-650 hover:text-blue-700 border border-blue-200 rounded-xl font-bold text-[11px] transition-all cursor-pointer inline-flex items-center gap-1.5 active:scale-95 shadow-2xs"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Tambah Manual</span>
-            </button>
+            {permissions.canManageUsers ? (
+              <>
+                <button
+                  onClick={() => setIsAddModalOpen(true)}
+                  title="Tambah Staff Manual"
+                  className="py-1.5 px-3.5 bg-blue-50 hover:bg-blue-100 text-blue-650 hover:text-blue-700 border border-blue-200 rounded-xl font-bold text-[11px] transition-all cursor-pointer inline-flex items-center gap-1.5 active:scale-95 shadow-2xs"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Tambah Manual</span>
+                </button>
 
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              title="Import Staff dari Excel"
-              className="py-1.5 px-3.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-750 hover:text-emerald-800 border border-emerald-200 rounded-xl font-bold text-[11px] transition-all cursor-pointer inline-flex items-center gap-1.5 active:scale-95 shadow-2xs"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Import Excel</span>
-            </button>
+                <button
+                  onClick={() => setIsImportModalOpen(true)}
+                  title="Import Staff dari Excel"
+                  className="py-1.5 px-3.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-750 hover:text-emerald-800 border border-emerald-200 rounded-xl font-bold text-[11px] transition-all cursor-pointer inline-flex items-center gap-1.5 active:scale-95 shadow-2xs"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Import Excel</span>
+                </button>
+              </>
+            ) : (
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-400" /> Mode Akses Terbatas
+              </span>
+            )}
+
 
             <select
               value={selectedStatus}
@@ -404,14 +483,14 @@ export const StaffTab: React.FC<StaffTabProps> = ({
             <thead>
               <tr className="bg-slate-50/70 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 <th className="py-3 px-4">Nama Personel</th>
-                <th className="py-3 px-4">Status Staff</th>
+                <th className="py-3 px-4">Peran Akses Sistem (RBAC)</th>
+                <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-center">Total Penugasan</th>
                 <th className="py-3 px-4 text-center text-emerald-600">Selesai</th>
                 <th className="py-3 px-4 text-center text-sky-600">Sedang Berjalan</th>
                 <th className="py-3 px-4 text-center text-rose-600">Tertunda</th>
                 <th className="py-3 px-4 text-center text-slate-400">Belum Mulai</th>
                 <th className="py-3 px-4">Efisiensi Progress</th>
-                <th className="py-3 px-4 text-center text-amber-600">Overdue/Hambatan</th>
                 <th className="py-3 px-4 text-center">Aksi</th>
               </tr>
             </thead>
@@ -422,17 +501,60 @@ export const StaffTab: React.FC<StaffTabProps> = ({
                   badgeClass = 'bg-slate-50 text-slate-400 border-slate-100';
                 }
 
+                const sObj = staffList.find(st => st.id === sw.id) || sw;
+                const sysRoleKey: UserRoleType = (sObj.systemRole as UserRoleType) || 'field_officer';
+                const roleCfg = USER_ROLES[sysRoleKey] || USER_ROLES.field_officer;
+
                 return (
                   <tr key={sw.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="py-3.5 px-4">
                       <div>
-                        <p className="font-bold text-slate-800">{sw.name}</p>
-                        <p className="text-[10px] text-slate-400 font-medium">{sw.role}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-800">{sw.name}</span>
+                          {sObj.email && (
+                            <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.2 rounded font-mono border border-blue-100 flex items-center gap-0.5" title="Email terdaftar untuk Google Login">
+                              📧 {sObj.email}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-slate-500 font-medium">{sw.role}</span>
+                          {sObj.lastLoginAt && (
+                            <span className="text-[9px] text-emerald-600 font-extrabold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-100 flex items-center gap-0.5">
+                              ✓ Google Auth Verified
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
+
+                    {/* RBAC System Role Column */}
+                    <td className="py-3.5 px-4">
+                      {permissions.canManageUsers ? (
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={sysRoleKey}
+                            onChange={(e) => handleQuickRoleChange(sw.id, e.target.value as UserRoleType)}
+                            className={`py-1 px-2 rounded-lg text-[10px] font-extrabold border cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 ${roleCfg.badgeBg} ${roleCfg.badgeText} ${roleCfg.badgeBorder}`}
+                            title="Ubah wewenang sistem RBAC"
+                          >
+                            <option value="super_admin">👑 1. Super Admin</option>
+                            <option value="project_coordinator">📊 2. Project Coordinator</option>
+                            <option value="field_officer">📑 3. Field Officer (PIC Lapangan)</option>
+                            <option value="donor_viewer">👁️ 4. Donor / Public Viewer</option>
+                          </select>
+                        </div>
+                      ) : (
+                        <span className={`py-1 px-2 rounded-lg border text-[10px] font-extrabold inline-flex items-center gap-1 ${roleCfg.badgeBg} ${roleCfg.badgeText} ${roleCfg.badgeBorder}`}>
+                          <span>{roleCfg.badgeIcon}</span>
+                          <span>{roleCfg.title}</span>
+                        </span>
+                      )}
+                    </td>
+
                     <td className="py-3.5 px-4">
                       <span className={`py-0.5 px-2 rounded-full border text-[9px] uppercase tracking-wider font-bold ${badgeClass}`}>
-                        {sw.status === 'active' ? 'Aktif' : 'Tidak Aktif'}
+                        {sw.status === 'active' ? 'Aktif' : 'Nonaktif'}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-center text-slate-800 font-bold">{sw.totalCount}</td>
@@ -452,21 +574,25 @@ export const StaffTab: React.FC<StaffTabProps> = ({
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span
-                        className={`py-0.5 px-2 rounded-full font-bold text-[10px] ${
-                          sw.criticalOverdues > 0 ? 'bg-red-50 text-red-700' : 'bg-slate-50 text-slate-400'
-                        }`}
-                      >
-                        {sw.criticalOverdues} Kasus
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <button
-                        onClick={() => onOpenTasksModal(sw.name)}
-                        className="py-1 px-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-blue-600 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer transition-all"
-                      >
-                        <Eye className="w-3 h-3" /> Lihat Tugas
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => onOpenTasksModal(sw.name)}
+                          className="py-1 px-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-blue-600 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer transition-all"
+                          title="Lihat rincian tugas"
+                        >
+                          <Eye className="w-3 h-3" /> Tugas
+                        </button>
+
+                        {permissions.canManageUsers && (
+                          <button
+                            onClick={() => handleOpenEditModal(sObj as Staff)}
+                            className="py-1 px-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-blue-600 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer transition-all"
+                            title="Edit data personel"
+                          >
+                            <Edit3 className="w-3 h-3" /> Edit
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -509,15 +635,42 @@ export const StaffTab: React.FC<StaffTabProps> = ({
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Jabatan / Posisi</label>
+                  <input
+                    type="text"
+                    value={newStaffRole}
+                    onChange={(e) => setNewStaffRole(e.target.value)}
+                    placeholder="Contoh: Field Officer"
+                    className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Email Resmi</label>
+                  <input
+                    type="email"
+                    value={newStaffEmail}
+                    onChange={(e) => setNewStaffEmail(e.target.value)}
+                    placeholder="nama@dfw.or.id"
+                    className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Peran / Jabatan</label>
-                <input
-                  type="text"
-                  value={newStaffRole}
-                  onChange={(e) => setNewStaffRole(e.target.value)}
-                  placeholder="Contoh: Field Officer"
-                  className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800"
-                />
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Peran Akses Sistem (RBAC) *</label>
+                <select
+                  value={newStaffSystemRole}
+                  onChange={(e) => setNewStaffSystemRole(e.target.value as UserRoleType)}
+                  className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800 cursor-pointer"
+                >
+                  <option value="super_admin">👑 1. Super Admin (Full Kontrol & Manajemen Proyek)</option>
+                  <option value="project_coordinator">📊 2. Project Coordinator (Kelola Target & Progress)</option>
+                  <option value="field_officer">📑 3. Field Officer (PIC Lapangan / Input Laporan)</option>
+                  <option value="donor_viewer">👁️ 4. Donor / Public Viewer (Read-Only Portal)</option>
+                </select>
               </div>
 
               <div className="space-y-1">
@@ -528,7 +681,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
                   className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800 cursor-pointer"
                 >
                   <option value="active">Aktif</option>
-                  <option value="inactive">Tidak Keanggotaan / Nonaktif</option>
+                  <option value="inactive">Nonaktif</option>
                 </select>
               </div>
             </div>
@@ -539,6 +692,8 @@ export const StaffTab: React.FC<StaffTabProps> = ({
                   setIsAddModalOpen(false);
                   setNewStaffName('');
                   setNewStaffRole('');
+                  setNewStaffEmail('');
+                  setNewStaffSystemRole('field_officer');
                   setNewStaffStatus('active');
                 }}
                 className="bg-white border border-slate-200 text-slate-500 py-2 px-4 rounded-xl font-bold transition-all hover:bg-slate-100 cursor-pointer"
@@ -551,6 +706,101 @@ export const StaffTab: React.FC<StaffTabProps> = ({
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Simpan Staff
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Staff Modal */}
+      {editingStaff && (
+        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center p-4 z-50 text-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl border border-slate-100 max-w-md w-full shadow-2xl flex flex-col justify-between overflow-hidden text-slate-600 font-medium">
+            <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-900 text-white">
+              <span className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Edit3 className="w-4 h-4 text-blue-400" /> Edit Data Staff &amp; Hak Akses
+              </span>
+              <button 
+                onClick={() => setEditingStaff(null)} 
+                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Nama Lengkap *</label>
+                <input
+                  type="text"
+                  value={newStaffName}
+                  onChange={(e) => setNewStaffName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Jabatan / Posisi</label>
+                  <input
+                    type="text"
+                    value={newStaffRole}
+                    onChange={(e) => setNewStaffRole(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Email Resmi</label>
+                  <input
+                    type="email"
+                    value={newStaffEmail}
+                    onChange={(e) => setNewStaffEmail(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Peran Akses Sistem (RBAC) *</label>
+                <select
+                  value={newStaffSystemRole}
+                  onChange={(e) => setNewStaffSystemRole(e.target.value as UserRoleType)}
+                  className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800 cursor-pointer"
+                >
+                  <option value="super_admin">👑 1. Super Admin (Full Kontrol & Manajemen Proyek)</option>
+                  <option value="project_coordinator">📊 2. Project Coordinator (Kelola Target & Progress)</option>
+                  <option value="field_officer">📑 3. Field Officer (PIC Lapangan / Input Laporan)</option>
+                  <option value="donor_viewer">👁️ 4. Donor / Public Viewer (Read-Only Portal)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Status Keanggotaan</label>
+                <select
+                  value={newStaffStatus}
+                  onChange={(e) => setNewStaffStatus(e.target.value as 'active' | 'inactive')}
+                  className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800 cursor-pointer"
+                >
+                  <option value="active">Aktif</option>
+                  <option value="inactive">Nonaktif</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+              <button
+                onClick={() => setEditingStaff(null)}
+                className="bg-white border border-slate-200 text-slate-500 py-2 px-4 rounded-xl font-bold transition-all hover:bg-slate-100 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-2 px-5 rounded-xl transition-all cursor-pointer inline-flex items-center gap-1 shadow-xs"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Perbarui Data Staff
               </button>
             </div>
           </div>

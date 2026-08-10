@@ -1,5 +1,6 @@
 import React from 'react';
-import { Project, Activity, Issue, Indicator } from '../types';
+import { Project, Activity, Issue, Indicator, UserRoleType } from '../types';
+import { isUserAssignedToProject } from '../lib/rbac';
 import { SupabaseSync } from '../lib/supabaseSync';
 import { 
   Folder, Play, AlertTriangle, CheckCircle, Percent, MapPin, 
@@ -14,6 +15,9 @@ interface DashboardTabProps {
   activities: Activity[];
   issues: Issue[];
   indicators: Indicator[];
+  userRole?: UserRoleType;
+  activeStaffId?: string;
+  activeStaffName?: string;
   onSelectProject: (projectId: string) => void;
   onAddProjectClick: () => void;
   onOpenImportModal: () => void;
@@ -24,6 +28,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   activities,
   issues,
   indicators,
+  userRole = 'super_admin',
+  activeStaffId = '',
+  activeStaffName = '',
   onSelectProject,
   onAddProjectClick,
   onOpenImportModal,
@@ -38,8 +45,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     }).format(value);
   };
 
-  // Stats calculations
-  const nonArchivedProjects = projects.filter((p) => !p.isArchived);
+  // Stats calculations - Filter by user project assignment
+  const nonArchivedProjects = projects.filter(
+    (p) => !p.isArchived && isUserAssignedToProject(userRole as UserRoleType, p, activeStaffId, activeStaffName)
+  );
   const totalProjects = nonArchivedProjects.length;
   
   const activeProjects = nonArchivedProjects.filter(

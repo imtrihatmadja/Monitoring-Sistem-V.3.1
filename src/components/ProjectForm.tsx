@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Project, ProjectStatus, Indicator, Outcome } from '../types';
-import { ArrowLeft, ArrowRight, Save, Trash2, HelpCircle } from 'lucide-react';
+import { Project, ProjectStatus, Indicator, Outcome, Staff, ProjectMember, UserRoleType } from '../types';
+import { USER_ROLES } from '../lib/rbac';
+import { ArrowLeft, ArrowRight, Save, Trash2, HelpCircle, Users, UserPlus, ShieldCheck } from 'lucide-react';
 
 interface ProjectFormProps {
   initialProject?: Project;
   initialIndicators?: Indicator[];
   initialOutcomes?: Outcome[];
   staffList: string[];
+  staffObjects?: Staff[];
   onSubmit: (projectData: Partial<Project>, indicators: Partial<Indicator>[], outcomes: Partial<Outcome>[]) => void;
   onCancel: () => void;
 }
@@ -16,6 +18,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
   initialIndicators,
   initialOutcomes,
   staffList,
+  staffObjects = [],
   onSubmit,
   onCancel,
 }) => {
@@ -34,6 +37,11 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
   const [desc, setDesc] = useState('');
   const [note, setNote] = useState('');
   const [goal, setGoal] = useState('');
+
+  // Step 1: Multi-User Project Members & Roles
+  const [assignedMembers, setAssignedMembers] = useState<ProjectMember[]>([]);
+  const [selectedStaffToAdd, setSelectedStaffToAdd] = useState<string>('');
+  const [selectedRoleToAdd, setSelectedRoleToAdd] = useState<UserRoleType>('field_officer');
 
   // Step 1 outcomes list
   const [outcomes, setOutcomes] = useState<{ id: string; title: string }[]>([]);
@@ -59,6 +67,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
       setDesc(initialProject.desc || '');
       setNote(initialProject.note || '');
       setGoal(initialProject.goal || '');
+      setAssignedMembers(initialProject.assignedMembers || []);
     } else {
       // Defaults
       setName('');
@@ -73,6 +82,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
       setDesc('');
       setNote('');
       setGoal('');
+      setAssignedMembers([]);
     }
 
     if (initialOutcomes && initialOutcomes.length > 0) {
@@ -92,6 +102,40 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
       ]);
     }
   }, [initialProject, initialIndicators, initialOutcomes]);
+
+  const handleAddTeamMember = () => {
+    if (!selectedStaffToAdd) return;
+    const stObj = staffObjects.find((s) => s.id === selectedStaffToAdd) || {
+      id: selectedStaffToAdd,
+      name: selectedStaffToAdd,
+    };
+
+    // Check if already assigned
+    if (assignedMembers.some((m) => m.staffId === stObj.id)) {
+      alert('Personel ini sudah ditambahkan ke tim proyek!');
+      return;
+    }
+
+    setAssignedMembers([
+      ...assignedMembers,
+      {
+        staffId: stObj.id,
+        staffName: stObj.name,
+        projectRole: selectedRoleToAdd,
+      },
+    ]);
+    setSelectedStaffToAdd('');
+  };
+
+  const handleRemoveTeamMember = (staffId: string) => {
+    setAssignedMembers(assignedMembers.filter((m) => m.staffId !== staffId));
+  };
+
+  const handleUpdateMemberRole = (staffId: string, newRole: UserRoleType) => {
+    setAssignedMembers(
+      assignedMembers.map((m) => (m.staffId === staffId ? { ...m, projectRole: newRole } : m))
+    );
+  };
 
   const handleAddOutcome = () => {
     setOutcomes([...outcomes, { id: `out-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, title: '' }]);
@@ -216,6 +260,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
       note: note || undefined,
       goal: goal || undefined,
       progress: initialProject?.progress || 0,
+      assignedMembers,
     };
 
     onSubmit(projectData, indicators, filteredOutcomes);
@@ -446,6 +491,116 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Multi-User Team Assignment Section */}
+            <div className="md:col-span-2 space-y-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-slate-800 font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-blue-600" />
+                    Penugasan Tim &amp; Hak Akses Khusus Proyek Ini (Multi-User)
+                  </label>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Setiap staf yang ditambahkan hanya bisa melihat &amp; mengelola proyek ini sesuai peran spesifik yang ditentukan.
+                  </p>
+                </div>
+              </div>
+
+              {/* Add Staff Controls */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 flex flex-wrap sm:flex-nowrap items-center gap-2">
+                <select
+                  value={selectedStaffToAdd}
+                  onChange={(e) => setSelectedStaffToAdd(e.target.value)}
+                  className="flex-1 bg-white border border-slate-200 text-xs font-semibold rounded-lg py-1.5 px-2.5 focus:outline-none focus:border-blue-500 text-slate-800 cursor-pointer min-w-[160px]"
+                >
+                  <option value="">-- Pilih Staf / Personel --</option>
+                  {staffObjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.role})
+                    </option>
+                  ))}
+                  {/* Fallback for staffList if staffObjects empty */}
+                  {staffObjects.length === 0 && staffList.map((stName) => (
+                    <option key={stName} value={stName}>
+                      {stName}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedRoleToAdd}
+                  onChange={(e) => setSelectedRoleToAdd(e.target.value as UserRoleType)}
+                  className="bg-white border border-slate-200 text-xs font-semibold rounded-lg py-1.5 px-2.5 focus:outline-none focus:border-blue-500 text-slate-800 cursor-pointer"
+                >
+                  <option value="project_coordinator">📊 Project Coordinator</option>
+                  <option value="field_officer">📑 Field Officer / PIC Lapangan</option>
+                  <option value="donor_viewer">👁️ Donor / Viewer (Read-Only)</option>
+                  <option value="super_admin">👑 Super Admin</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={handleAddTeamMember}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-1.5 px-3 rounded-lg text-xs cursor-pointer inline-flex items-center gap-1 shrink-0 shadow-xs"
+                >
+                  <UserPlus className="w-3.5 h-3.5" /> Tambah ke Tim
+                </button>
+              </div>
+
+              {/* Assigned Members Table/List */}
+              {assignedMembers.length === 0 ? (
+                <div className="p-3 bg-amber-50/60 border border-amber-200/60 rounded-xl text-[11px] text-amber-800 font-medium">
+                  💡 <strong>Catatan:</strong> Jika tidak ada staf spesifik yang ditambahkan, proyek ini dapat diakses oleh semua pengguna sesuai hak akses globalnya.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                    Anggota Tim Terdaftar ({assignedMembers.length}):
+                  </p>
+                  <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden bg-white">
+                    {assignedMembers.map((m) => {
+                      const stName = m.staffName || staffObjects.find((s) => s.id === m.staffId)?.name || m.staffId;
+                      const roleCfg = USER_ROLES[m.projectRole] || USER_ROLES.field_officer;
+
+                      return (
+                        <div key={m.staffId} className="p-2.5 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
+                              {stName.charAt(0)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate">{stName}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={m.projectRole}
+                              onChange={(e) => handleUpdateMemberRole(m.staffId, e.target.value as UserRoleType)}
+                              className={`py-1 px-2 rounded-lg text-[10px] font-extrabold border cursor-pointer focus:outline-none ${roleCfg.badgeBg} ${roleCfg.badgeText} ${roleCfg.badgeBorder}`}
+                            >
+                              <option value="super_admin">👑 Super Admin</option>
+                              <option value="project_coordinator">📊 Project Coordinator</option>
+                              <option value="field_officer">📑 Field Officer / PIC Lapangan</option>
+                              <option value="donor_viewer">👁️ Donor / Viewer</option>
+                            </select>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTeamMember(m.staffId)}
+                              className="p-1 hover:bg-rose-50 text-rose-500 rounded-md cursor-pointer transition-colors"
+                              title="Hapus dari tim"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

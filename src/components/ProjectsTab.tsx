@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Project, Activity, Indicator } from '../types';
+import { Project, Activity, Indicator, UserRoleType } from '../types';
+import { getRolePermissions, isUserAssignedToProject, getProjectEffectiveRole, USER_ROLES } from '../lib/rbac';
 import { SupabaseSync } from '../lib/supabaseSync';
 import { 
   Search, FileDown, Plus, Edit, Archive, Eye, Trash2,
   CheckCircle2, TrendingUp, DollarSign, LayoutGrid, 
-  List, AlertCircle, Percent, Coins, Wallet, FileSpreadsheet, Upload 
+  List, AlertCircle, Percent, Coins, Wallet, FileSpreadsheet, Upload, Lock, Users
 } from 'lucide-react';
 import { ProjectImpactRow } from './ProjectImpactRow';
 import { downloadProjectTemplate, exportProjectsToExcel } from '../lib/excelHelpers';
@@ -13,6 +14,9 @@ interface ProjectsTabProps {
   projects: Project[];
   activities: Activity[];
   indicators: Indicator[];
+  userRole?: UserRoleType;
+  activeStaffId?: string;
+  activeStaffName?: string;
   onSelectProject: (projectId: string) => void;
   onEditProject: (projectId: string) => void;
   onArchiveProject: (projectId: string) => void;
@@ -25,6 +29,9 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
   projects,
   activities,
   indicators,
+  userRole = 'super_admin',
+  activeStaffId = '',
+  activeStaffName = '',
   onSelectProject,
   onEditProject,
   onArchiveProject,
@@ -34,9 +41,12 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const permissions = getRolePermissions(userRole as UserRoleType);
 
-  // Filter projects (non-archived only)
-  const nonArchivedProjects = projects.filter((p) => !p.isArchived);
+  // Filter projects by active staff assignment and non-archived status
+  const nonArchivedProjects = projects.filter(
+    (p) => !p.isArchived && isUserAssignedToProject(userRole as UserRoleType, p, activeStaffId, activeStaffName)
+  );
 
   const filteredProjects = nonArchivedProjects.filter((p) => {
     const s = searchTerm.toLowerCase();
@@ -152,13 +162,15 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
             <FileDown className="w-4 h-4 text-emerald-600" /> Template Excel
           </button>
 
-          <button
-            onClick={onOpenImportModal}
-            id="btn-import-excel-proj"
-            className="bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 font-extrabold text-xs py-2 px-3.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer h-9"
-          >
-            <Upload className="w-4 h-4 text-blue-600" /> Import Proyek
-          </button>
+          {permissions.canManageProjects && (
+            <button
+              onClick={onOpenImportModal}
+              id="btn-import-excel-proj"
+              className="bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 font-extrabold text-xs py-2 px-3.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer h-9"
+            >
+              <Upload className="w-4 h-4 text-blue-600" /> Import Proyek
+            </button>
+          )}
 
           <button
             onClick={() => exportProjectsToExcel(projects, indicators)}
@@ -169,13 +181,16 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
             <FileSpreadsheet className="w-4 h-4 text-purple-600" /> Export Proyek
           </button>
           
-          <button
-            onClick={onAddProjectClick}
-            id="btn-add-project-tbl"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-2 px-4 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer h-9"
-          >
-            <Plus className="w-4 h-4" /> Tambah Proyek
-          </button>
+          {permissions.canManageProjects && (
+            <button
+              onClick={onAddProjectClick}
+              id="btn-add-project-tbl"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-2 px-4 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer h-9"
+            >
+              <Plus className="w-4 h-4" /> Tambah Proyek
+            </button>
+          )}
+
         </div>
       </div>
 
@@ -238,6 +253,10 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                       ? Math.round((p.budgetActual / p.budgetApproved) * 100) 
                       : 0;
 
+                    const effRole = getProjectEffectiveRole(userRole as UserRoleType, p, activeStaffId, activeStaffName);
+                    const effPermissions = USER_ROLES[effRole] || USER_ROLES.field_officer;
+                    const memberCount = p.assignedMembers?.length || 0;
+
                     return (
                       <tr
                         key={p.id}
@@ -252,11 +271,21 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                             >
                               {p.name}
                             </button>
-                            {p.donor && (
-                              <span className="inline-block text-[9px] text-slate-400 font-extrabold px-1.5 py-0.2 bg-slate-50 border border-slate-100 rounded-md mt-1">
-                                {p.donor}
+                            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                              <span className={`inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.2 rounded border ${effPermissions.badgeBg} ${effPermissions.badgeText} ${effPermissions.badgeBorder}`}>
+                                {effPermissions.badgeIcon} {effPermissions.title.split('/')[0].trim()}
                               </span>
-                            )}
+                              {memberCount > 0 && (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold bg-slate-50 px-1.5 py-0.2 rounded border border-slate-100">
+                                  <Users className="w-2.5 h-2.5" /> {memberCount} Tim
+                                </span>
+                              )}
+                              {p.donor && (
+                                <span className="inline-block text-[9px] text-slate-400 font-extrabold px-1.5 py-0.2 bg-slate-50 border border-slate-100 rounded-md">
+                                  {p.donor}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="py-4 px-4 text-slate-500 font-medium">{p.location}</td>
@@ -295,27 +324,31 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                              onClick={() => onEditProject(p.id)}
-                              className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-amber-600 rounded-lg transition-all cursor-pointer"
-                              title="Edit Proyek"
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => onArchiveProject(p.id)}
-                              className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
-                              title="Arsip Proyek"
-                            >
-                              <Archive className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => onDeleteProject(p.id)}
-                              className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-rose-700 rounded-lg transition-all cursor-pointer"
-                              title="Hapus Proyek"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                            </button>
+                            {permissions.canManageProjects && (
+                              <>
+                                <button
+                                  onClick={() => onEditProject(p.id)}
+                                  className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-amber-600 rounded-lg transition-all cursor-pointer"
+                                  title="Edit Proyek"
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => onArchiveProject(p.id)}
+                                  className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
+                                  title="Arsip Proyek"
+                                >
+                                  <Archive className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => onDeleteProject(p.id)}
+                                  className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-rose-700 rounded-lg transition-all cursor-pointer"
+                                  title="Hapus Proyek"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -357,6 +390,10 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                 ? Math.round((p.budgetActual / p.budgetApproved) * 100) 
                 : 0;
 
+              const effRole = getProjectEffectiveRole(userRole as UserRoleType, p, activeStaffId, activeStaffName);
+              const effPermissions = USER_ROLES[effRole] || USER_ROLES.field_officer;
+              const memberCount = p.assignedMembers?.length || 0;
+
               return (
                 <div
                   key={p.id}
@@ -364,11 +401,16 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                 >
                   <div className="p-5 space-y-4">
                     <div className="flex items-start justify-between gap-2">
-                      <span className={`text-[10px] font-extrabold py-0.5 px-2.5 rounded-full border uppercase tracking-wide ${statusStyle}`}>
-                        {p.status}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        <span className={`text-[10px] font-extrabold py-0.5 px-2.5 rounded-full border uppercase tracking-wide ${statusStyle}`}>
+                          {p.status}
+                        </span>
+                        <span className={`text-[10px] font-extrabold py-0.5 px-2 rounded-md border ${effPermissions.badgeBg} ${effPermissions.badgeText} ${effPermissions.badgeBorder}`}>
+                          {effPermissions.badgeIcon} {effPermissions.title.split('/')[0].trim()}
+                        </span>
+                      </div>
                       {p.donor && (
-                        <span className="text-[10px] font-extrabold text-slate-400 bg-slate-50 py-0.5 px-2 rounded-md border border-slate-100/50">
+                        <span className="text-[10px] font-extrabold text-slate-400 bg-slate-50 py-0.5 px-2 rounded-md border border-slate-100/50 shrink-0">
                           {p.donor}
                         </span>
                       )}
@@ -431,29 +473,34 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                       >
                         <Eye className="w-3 h-3" /> Detail
                       </button>
-                      <button
-                        onClick={() => onEditProject(p.id)}
-                        className="p-1 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-[10px] font-semibold text-slate-600 hover:text-amber-600 rounded-lg transition-all cursor-pointer"
-                        title="Edit Proyek"
-                      >
-                        <Edit className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => onArchiveProject(p.id)}
-                        className="p-1 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-[10px] font-semibold text-slate-600 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
-                        title="Arsip Proyek"
-                      >
-                        <Archive className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => onDeleteProject(p.id)}
-                        className="p-1 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-[10px] font-semibold text-slate-600 hover:text-rose-750 rounded-lg transition-all cursor-pointer"
-                        title="Hapus Proyek"
-                      >
-                        <Trash2 className="w-3 h-3 text-rose-500" />
-                      </button>
+                      {permissions.canManageProjects && (
+                        <>
+                          <button
+                            onClick={() => onEditProject(p.id)}
+                            className="p-1 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-[10px] font-semibold text-slate-600 hover:text-amber-600 rounded-lg transition-all cursor-pointer"
+                            title="Edit Proyek"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => onArchiveProject(p.id)}
+                            className="p-1 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-[10px] font-semibold text-slate-600 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
+                            title="Arsip Proyek"
+                          >
+                            <Archive className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => onDeleteProject(p.id)}
+                            className="p-1 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-[10px] font-semibold text-slate-600 hover:text-rose-750 rounded-lg transition-all cursor-pointer"
+                            title="Hapus Proyek"
+                          >
+                            <Trash2 className="w-3 h-3 text-rose-500" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
+
                 </div>
               );
             })

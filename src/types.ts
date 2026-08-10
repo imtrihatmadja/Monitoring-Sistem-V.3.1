@@ -8,6 +8,12 @@ export interface Outcome {
   sortOrder?: number;
 }
 
+export interface ProjectMember {
+  staffId: string;
+  staffName?: string;
+  projectRole: UserRoleType;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -26,6 +32,7 @@ export interface Project {
   isArchived: boolean;
   archoredBy?: string;
   archivedAt?: string;
+  assignedMembers?: ProjectMember[];
 }
 
 export interface Indicator {
@@ -142,6 +149,11 @@ export interface Staff {
   id: string;
   name: string;
   role: string;
+  systemRole?: UserRoleType;
+  email?: string;
+  googleAvatarUrl?: string;
+  googleId?: string;
+  lastLoginAt?: string;
   status: 'active' | 'inactive';
 }
 
@@ -177,3 +189,4 @@ export interface ProjectDocument {
   createdAt?: string;
 }
 
+export type UserRoleType = 'super_admin' | 'project_coordinator' | 'field_officer' | 'donor_viewer';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Project, Activity, Indicator, Outcome, Beneficiary, Issue, Staff, SubActivity, ProjectReflection, ActivityFile, ProjectDocument } from './types';
 import { safeStorage as localStorage } from './lib/safeStorage';
 import {
@@ -26,6 +26,9 @@ import { StaffTab } from './components/StaffTab';
 import { ProjectForm } from './components/ProjectForm';
 import { ProjectDetailTab } from './components/ProjectDetailTab';
 import { DocumentsTab } from './components/DocumentsTab';
+import { RoleSelectorModal } from './components/RoleSelectorModal';
+import { GoogleAuthModal } from './components/GoogleAuthModal';
+import { UserRoleType, getRolePermissions, getProjectEffectiveRole, isUserAssignedToProject } from './lib/rbac';
 
 // Import Confirm Modal
 import { ConfirmModal } from './components/ConfirmModal';
@@ -63,6 +66,7 @@ import {
   ChevronUp,
   Copy,
   Check,
+  ShieldAlert,
 } from 'lucide-react';
 
 export default function App() {
@@ -162,6 +166,28 @@ export default function App() {
   
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [docProjectFilter, setDocProjectFilter] = useState<string>('');
+
+  // Active Staff Member & RBAC Role-Based Access Control State
+  const [activeStaffId, setActiveStaffId] = useState<string>(() => {
+    return localStorage.getItem('dfw_active_staff_id') || 'st-01';
+  });
+
+  const activeStaff = useMemo(() => {
+    return staff.find((s) => s.id === activeStaffId) || staff[0] || {
+      id: 'st-01',
+      name: 'Imam Trihatmadja',
+      role: 'Program Director',
+      systemRole: 'super_admin' as UserRoleType,
+      status: 'active'
+    };
+  }, [staff, activeStaffId]);
+
+  const currentRole: UserRoleType = activeStaff.systemRole || 'super_admin';
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isGoogleAuthModalOpen, setIsGoogleAuthModalOpen] = useState(false);
+  const currentPermissions = getRolePermissions(currentRole);
+
 
   // Reusable custom confirm modal state to replace iframe-incompatible window.confirm
   const [confirmState, setConfirmState] = useState<{
@@ -2870,16 +2896,31 @@ export default function App() {
           </button>
         </nav>
 
-        {/* User identification footer */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-white text-xs shrink-0 select-none">
-              DFW
+        {/* User identification & RBAC Role Switcher footer */}
+        <div className="m-3 p-3 border border-slate-800 bg-slate-950/80 rounded-2xl shadow-inner space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-blue-600 border border-blue-500/40 flex items-center justify-center font-black text-white text-xs shrink-0 select-none">
+                {activeStaff.name.charAt(0)}
+              </div>
+              <div className="min-w-0">
+                <span className="font-extrabold text-slate-100 block truncate text-xs leading-tight">{activeStaff.name}</span>
+                <span className="text-[10px] text-slate-400 block font-medium truncate">{activeStaff.role}</span>
+              </div>
             </div>
-            <div className="min-w-0">
-              <span className="font-bold text-slate-200 block truncate">DFW Indonesia</span>
-              <span className="text-[10px] text-slate-500 block">Program Coordinator</span>
-            </div>
+          </div>
+
+          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1.5">
+            <span className={`text-[9px] font-extrabold py-0.5 px-2 rounded-md ${currentPermissions.badgeBg} ${currentPermissions.badgeText} border ${currentPermissions.badgeBorder} truncate`}>
+              {currentPermissions.badgeIcon} {currentPermissions.title}
+            </span>
+            <button
+              onClick={() => setIsRoleModalOpen(true)}
+              className="text-[10px] text-blue-400 hover:text-white font-bold bg-blue-950/80 hover:bg-blue-600 px-2 py-0.5 rounded-lg border border-blue-800 transition-all cursor-pointer shrink-0"
+              title="Matriks RBAC & Simulasi Akses"
+            >
+              Ubah Role
+            </button>
           </div>
         </div>
       </aside>
@@ -2897,7 +2938,117 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Google Login Trigger Button */}
+            <button
+              onClick={() => setIsGoogleAuthModalOpen(true)}
+              className="py-1 px-2.5 sm:px-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs text-slate-800"
+              title="Login dengan Google Account (Akses berbasis email)"
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+              </svg>
+              <span className="hidden md:inline">Google Auth</span>
+              {activeStaff.lastLoginAt && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" title="Terautentikasi Google" />
+              )}
+            </button>
+
+            {/* Account Profile / Active User Switcher Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="py-1 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shadow-2xs group"
+                title="Klik untuk beralih akun staf / pengguna"
+              >
+                <div className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">
+                  {activeStaff.name.charAt(0)}
+                </div>
+                <div className="text-left hidden sm:block min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-extrabold text-slate-800 text-[11px] truncate">{activeStaff.name}</span>
+                    <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded ${currentPermissions.badgeBg} ${currentPermissions.badgeText} border ${currentPermissions.badgeBorder}`}>
+                      {currentPermissions.title}
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform" />
+              </button>
+
+              {/* User Dropdown Menu */}
+              {isUserMenuOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in duration-150">
+                  <div className="p-3 bg-slate-900 text-white flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pengguna Aktif Portal</p>
+                      <p className="text-xs font-extrabold text-white">{activeStaff.name}</p>
+                    </div>
+                    <span className={`text-[10px] font-extrabold py-0.5 px-2 rounded-md ${currentPermissions.badgeBg} ${currentPermissions.badgeText}`}>
+                      {currentPermissions.badgeIcon} {currentPermissions.title}
+                    </span>
+                  </div>
+
+                  <div className="p-2 space-y-1 max-h-64 overflow-y-auto">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-2 py-1">
+                      Pilih Akun Staf / Pengguna Terdaftar:
+                    </p>
+                    {staff.map((st) => {
+                      const sRoleKey = st.systemRole || 'field_officer';
+                      const stPermissions = getRolePermissions(sRoleKey as UserRoleType);
+                      const isSelected = st.id === activeStaff.id;
+
+                      return (
+                        <div
+                          key={st.id}
+                          onClick={() => {
+                            setActiveStaffId(st.id);
+                            localStorage.setItem('dfw_active_staff_id', st.id);
+                            setIsUserMenuOpen(false);
+                            setSyncToast('success');
+                            setTimeout(() => setSyncToast(''), 1500);
+                          }}
+                          className={`p-2 rounded-xl transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                            isSelected
+                              ? 'bg-blue-50 border border-blue-200 font-bold'
+                              : 'hover:bg-slate-50 border border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0">
+                              {st.name.charAt(0)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate">{st.name}</p>
+                              <p className="text-[10px] text-slate-400 font-medium truncate">{st.role}</p>
+                            </div>
+                          </div>
+                          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border shrink-0 ${stPermissions.badgeBg} ${stPermissions.badgeText} ${stPermissions.badgeBorder}`}>
+                            {stPermissions.badgeIcon} {stPermissions.title}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="p-2 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-[10px] font-bold text-slate-500">
+                    <span>Atur wewenang di Tab Staff</span>
+                    <button
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsRoleModalOpen(true);
+                      }}
+                      className="text-blue-600 hover:underline font-extrabold cursor-pointer"
+                    >
+                      Matriks RBAC →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 py-1 px-2.5 rounded-full border border-emerald-100 inline-flex items-center gap-1">
               <span>🟢</span> Realtime Database ON
             </span>
@@ -2936,6 +3087,9 @@ export default function App() {
               activities={activities}
               issues={issues}
               indicators={indicators}
+              userRole={currentRole}
+              activeStaffId={activeStaffId}
+              activeStaffName={activeStaff.name}
               onSelectProject={handleSelectProject}
               onAddProjectClick={() => setActiveTab('add_project')}
               onOpenImportModal={() => setIsImportModalOpen(true)}
@@ -2947,6 +3101,9 @@ export default function App() {
               projects={projects}
               activities={activities}
               indicators={indicators}
+              userRole={currentRole}
+              activeStaffId={activeStaffId}
+              activeStaffName={activeStaff.name}
               onSelectProject={handleSelectProject}
               onEditProject={handleEditProjectClick}
               onArchiveProject={handleArchiveProject}
@@ -2961,9 +3118,30 @@ export default function App() {
               const proj = projects.find((p) => isIdMatch(p.id, selectedProjectId));
               if (!proj) return <p className="text-xs">Proyek tidak ditemukan.</p>;
               
+              const hasAccess = isUserAssignedToProject(currentRole, proj, activeStaffId, activeStaff.name);
+              if (!hasAccess) {
+                return (
+                  <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center space-y-3">
+                    <ShieldAlert className="w-8 h-8 text-rose-600 mx-auto" />
+                    <h3 className="font-extrabold text-rose-900 text-sm">Akses Proyek Dibatasi</h3>
+                    <p className="text-xs text-rose-700">
+                      Anda ({activeStaff.name}) tidak memiliki izin akses untuk melihat detail proyek ini.
+                      Hubungi Super Admin untuk menambahkan Anda ke tim proyek ini.
+                    </p>
+                    <button
+                      onClick={() => setActiveTab('projects')}
+                      className="px-4 py-2 bg-slate-900 text-white font-extrabold text-xs rounded-xl cursor-pointer"
+                    >
+                      Kembali ke Daftar Proyek
+                    </button>
+                  </div>
+                );
+              }
+
               const projectOutcomes = outcomes.filter((o) => isIdMatch(o.projectId, selectedProjectId));
               const projectIndicators = indicators.filter((i) => isIdMatch(i.projectId, selectedProjectId));
               const projectActs = activities.filter((a) => isIdMatch(a.projectId, selectedProjectId));
+              const effectiveProjectRole = getProjectEffectiveRole(currentRole, proj, activeStaffId, activeStaff.name);
 
               return (
                 <ProjectDetailTab
@@ -2974,7 +3152,9 @@ export default function App() {
                   reflections={currentProjectReflections}
                   staffList={staffNamesList}
                   documents={documents}
+                  userRole={effectiveProjectRole}
                   onUpdateDocuments={updateDocumentsInStorage}
+
                   onBackToDashboard={() => setActiveTab('dashboard')}
                   onEditProjectClick={handleEditProjectClick}
                   onAddActivityClick={() => {
@@ -3047,6 +3227,7 @@ export default function App() {
                   : undefined
               }
               staffList={staffNamesList}
+              staffObjects={staff}
               onSubmit={handleSaveProjectWizard}
               onCancel={() => {
                 if (activeTab === 'edit_project') setActiveTab('project_detail');
@@ -3101,6 +3282,7 @@ export default function App() {
               activities={activities}
               projects={projects}
               subActivities={subActivities}
+              userRole={currentRole}
               onUpdateStaffList={updateStaffInStorage}
               onOpenTasksModal={(staffName) => {
                 setSelectedStaffTasksName(staffName);
@@ -4253,6 +4435,37 @@ ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_
           setSelectedStaffTasksName('');
           setActiveParentActivityId(sub.parentActivityId);
           setIsSubActivitiesModalOpen(true);
+        }}
+      />
+
+      <GoogleAuthModal
+        isOpen={isGoogleAuthModalOpen}
+        staffList={staff}
+        activeStaff={activeStaff}
+        onClose={() => setIsGoogleAuthModalOpen(false)}
+        onGoogleLoginSuccess={(matchedStaff) => {
+          const updatedStaffList = staff.map((s) => (s.id === matchedStaff.id ? matchedStaff : s));
+          updateStaffInStorage(updatedStaffList);
+          setActiveStaffId(matchedStaff.id);
+          localStorage.setItem('dfw_active_staff_id', matchedStaff.id);
+          setIsGoogleAuthModalOpen(false);
+          setSyncToast('success');
+          setTimeout(() => setSyncToast(''), 2000);
+        }}
+      />
+
+      <RoleSelectorModal
+        isOpen={isRoleModalOpen}
+        currentRole={currentRole}
+        onClose={() => setIsRoleModalOpen(false)}
+        onSelectRole={(r) => {
+          if (activeStaff) {
+            const updated = staff.map((s) => s.id === activeStaff.id ? { ...s, systemRole: r } : s);
+            setStaff(updated);
+          }
+          setIsRoleModalOpen(false);
+          setSyncToast('success');
+          setTimeout(() => setSyncToast(''), 1500);
         }}
       />
 
