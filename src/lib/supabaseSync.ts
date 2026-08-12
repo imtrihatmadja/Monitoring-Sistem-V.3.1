@@ -5,9 +5,9 @@ import { safeStorage } from './safeStorage';
 // Global caches for schema discovery with comprehensive static fallback definitions
 const fallbackSchemaColumns: Record<string, string[]> = {
   projects: [
-    'id', 'name', 'location', 'owner', 'donor', 'status', 'start_date', 'deadline', 
+    'id', 'name', 'location', 'owner', 'pic', 'donor', 'status', 'start_date', 'deadline', 
     'progress', 'budget_approved', 'budget_actual', 'desc', 'note', 'goal', 
-    'is_archived', 'archored_by', 'archived_at'
+    'is_archived', 'archored_by', 'archived_at', 'assigned_members'
   ],
   project_indicators: [
     'id', 'project_id', 'title', 'indicator_name', 'target', 'current', 'unit', 'last_updated', 'last_value', 'project_name', 'notes', 'notes_updated_at',
@@ -340,7 +340,7 @@ function fromDbRow<T>(row: any): T {
     let val = row[key];
     if (typeof val === 'string') {
       const trimmed = val.trim();
-      if ((key === 'notes' || key === 'files' || key === 'updates' || key === 'registrations') && (trimmed.startsWith('[') || trimmed.startsWith('{'))) {
+      if ((key === 'notes' || key === 'files' || key === 'updates' || key === 'registrations' || key === 'assigned_members' || key === 'assignedMembers') && (trimmed.startsWith('[') || trimmed.startsWith('{'))) {
         try {
           val = JSON.parse(trimmed);
         } catch {
@@ -552,6 +552,8 @@ function mapProjectToDb(proj: Project) {
   row.budget_approved = Number(proj.budgetApproved || 0);
   row.budget_actual = Number(proj.budgetActual || 0);
   row.archored_by = proj.archoredBy || null; // Respect types typo "archoredBy"
+  row.pic = proj.pic || proj.owner || null;
+  row.assigned_members = proj.assignedMembers ? JSON.stringify(proj.assignedMembers) : null;
   return cleanRowAndPrepare('projects', row);
 }
 
@@ -990,6 +992,12 @@ export const SupabaseSync = {
       // 2. Process projects first to populate name cache
       const projectsProcessed = resProjects.data === undefined ? undefined : (resProjects.data || []).map(row => {
         const item = fromDbRow<Project>(row);
+        if (typeof item.assignedMembers === 'string') {
+          try { item.assignedMembers = JSON.parse(item.assignedMembers); } catch { item.assignedMembers = []; }
+        }
+        if (!item.assignedMembers || !Array.isArray(item.assignedMembers)) {
+          item.assignedMembers = [];
+        }
         if (item.id && item.name) {
           projectIdToName.set(item.id, item.name);
           projectIdToName.set(textToUuid(item.id), item.name);
@@ -1078,6 +1086,12 @@ export const SupabaseSync = {
       if (table === 'projects') {
         processed = rows.map(row => {
           const item = fromDbRow<Project>(row);
+          if (typeof item.assignedMembers === 'string') {
+            try { item.assignedMembers = JSON.parse(item.assignedMembers); } catch { item.assignedMembers = []; }
+          }
+          if (!item.assignedMembers || !Array.isArray(item.assignedMembers)) {
+            item.assignedMembers = [];
+          }
           if (item.id && item.name) {
             projectIdToName.set(item.id, item.name);
             projectIdToName.set(textToUuid(item.id), item.name);

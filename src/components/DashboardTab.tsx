@@ -18,6 +18,7 @@ interface DashboardTabProps {
   userRole?: UserRoleType;
   activeStaffId?: string;
   activeStaffName?: string;
+  activeStaffEmail?: string;
   onSelectProject: (projectId: string) => void;
   onAddProjectClick: () => void;
   onOpenImportModal: () => void;
@@ -31,6 +32,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   userRole = 'super_admin',
   activeStaffId = '',
   activeStaffName = '',
+  activeStaffEmail = '',
   onSelectProject,
   onAddProjectClick,
   onOpenImportModal,
@@ -47,7 +49,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   // Stats calculations - Filter by user project assignment
   const nonArchivedProjects = projects.filter(
-    (p) => !p.isArchived && isUserAssignedToProject(userRole as UserRoleType, p, activeStaffId, activeStaffName)
+    (p) => !p.isArchived && isUserAssignedToProject(userRole as UserRoleType, p, activeStaffId, activeStaffName, activeStaffEmail)
   );
   const totalProjects = nonArchivedProjects.length;
   

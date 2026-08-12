@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Project, Activity, Indicator, Outcome, Beneficiary, Issue, Staff, SubActivity, ProjectReflection, ActivityFile, ProjectDocument } from './types';
+import { Project, Activity, Indicator, Outcome, Beneficiary, Issue, Staff, SubActivity, ProjectReflection, ActivityFile, ProjectDocument, ProjectMember } from './types';
 import { safeStorage as localStorage } from './lib/safeStorage';
 import {
   INITIAL_PROJECTS,
@@ -313,6 +313,50 @@ export default function App() {
     }
   };
 
+  const mergeProjectsWithLocalAssignments = (incomingProjects: Project[]): Project[] => {
+    if (!incomingProjects || !Array.isArray(incomingProjects)) {
+      console.log('[MergeAssignments] Incoming projects is empty or invalid:', incomingProjects);
+      return [];
+    }
+    const rawAssignments = localStorage.getItem('dfw_project_assignments');
+    let localMap: Record<string, ProjectMember[]> = {};
+    if (rawAssignments) {
+      try { localMap = JSON.parse(rawAssignments); } catch { localMap = {}; }
+    }
+
+    console.log(`[MergeAssignments] Processing ${incomingProjects.length} incoming project(s). Keys in localMap:`, Object.keys(localMap));
+
+    const updated = incomingProjects.map(p => {
+      let members = p.assignedMembers;
+      if (typeof members === 'string') {
+        try { members = JSON.parse(members); } catch { members = []; }
+      }
+      const hadDirectMembers = members && Array.isArray(members) && members.length > 0;
+
+      if (!hadDirectMembers) {
+        if (localMap[p.id] && Array.isArray(localMap[p.id]) && localMap[p.id].length > 0) {
+          members = localMap[p.id];
+          console.log(`[MergeAssignments] Restored ${members.length} member(s) from localMap for project "${p.name || p.id}":`, members);
+        } else {
+          members = [];
+        }
+      } else {
+        localMap[p.id] = members;
+        console.log(`[MergeAssignments] Preserved ${members.length} direct member(s) from project payload for "${p.name || p.id}":`, members);
+      }
+      return { ...p, assignedMembers: members || [] };
+    });
+
+    try {
+      localStorage.setItem('dfw_project_assignments', JSON.stringify(localMap));
+      console.log('[MergeAssignments] Updated dfw_project_assignments in localStorage successfully.');
+    } catch (err) {
+      console.warn('[MergeAssignments] Failed to save dfw_project_assignments to localStorage:', err);
+    }
+
+    return updated;
+  };
+
   const loadLocalFallback = () => {
     const storedProjects = localStorage.getItem('dfw_projects');
     const storedIndicators = localStorage.getItem('dfw_indicators');
@@ -335,7 +379,7 @@ export default function App() {
       }
     };
 
-    setProjects(safeParse(storedProjects, INITIAL_PROJECTS));
+    setProjects(mergeProjectsWithLocalAssignments(safeParse(storedProjects, INITIAL_PROJECTS)));
     setIndicators(safeParse(storedIndicators, INITIAL_INDICATORS));
     setOutcomes(safeParse(storedOutcomes, INITIAL_OUTCOMES));
     setActivities(safeParse(storedActivities, INITIAL_ACTIVITIES));
@@ -370,8 +414,9 @@ export default function App() {
       if (!isSupabaseConfigured) return;
       if (data) {
         if (data.projects !== undefined) {
-          setProjects(data.projects);
-          localStorage.setItem('dfw_projects', JSON.stringify(data.projects));
+          const mergedProjects = mergeProjectsWithLocalAssignments(data.projects);
+          setProjects(mergedProjects);
+          localStorage.setItem('dfw_projects', JSON.stringify(mergedProjects));
         }
         if (data.indicators !== undefined) {
           setIndicators(data.indicators);
@@ -454,10 +499,11 @@ export default function App() {
             };
 
             if (data.projects !== undefined) {
-              setProjects(data.projects);
-              localStorage.setItem('dfw_projects', JSON.stringify(data.projects));
+              const mergedProjects = mergeProjectsWithLocalAssignments(data.projects);
+              setProjects(mergedProjects);
+              localStorage.setItem('dfw_projects', JSON.stringify(mergedProjects));
             } else {
-              setProjects(safeParse(localStorage.getItem('dfw_projects'), INITIAL_PROJECTS));
+              setProjects(mergeProjectsWithLocalAssignments(safeParse(localStorage.getItem('dfw_projects'), INITIAL_PROJECTS)));
             }
 
             if (data.indicators !== undefined) {
@@ -566,7 +612,7 @@ export default function App() {
         SupabaseSync.fetchSingleTable(table).then((data) => {
           if (!data) return;
           
-          if (table === 'projects') setProjects(data);
+          if (table === 'projects') setProjects(mergeProjectsWithLocalAssignments(data));
           else if (table === 'project_indicators') setIndicators(data);
           else if (table === 'project_outcomes') setOutcomes(data);
           else if (table === 'project_activities') setActivities(data);
@@ -721,6 +767,23 @@ export default function App() {
   };
 
   const updateProjectsInStorage = (newList: Project[]) => {
+    // 1. Explicit user update -> Sync localMap directly
+    const rawAssignments = localStorage.getItem('dfw_project_assignments');
+    let localMap: Record<string, ProjectMember[]> = {};
+    if (rawAssignments) {
+      try { localMap = JSON.parse(rawAssignments); } catch { localMap = {}; }
+    }
+
+    newList.forEach(p => {
+      localMap[p.id] = p.assignedMembers || [];
+    });
+
+    try {
+      localStorage.setItem('dfw_project_assignments', JSON.stringify(localMap));
+    } catch {
+      // Safe fallback
+    }
+
     setProjects(newList);
     localStorage.setItem('dfw_projects', JSON.stringify(newList));
     if (dbIsConfigured) {
@@ -931,8 +994,9 @@ export default function App() {
       if (!isSupabaseConfigured) return;
       if (data) {
         if (data.projects !== undefined) {
-          setProjects(data.projects);
-          localStorage.setItem('dfw_projects', JSON.stringify(data.projects));
+          const mergedProjects = mergeProjectsWithLocalAssignments(data.projects);
+          setProjects(mergedProjects);
+          localStorage.setItem('dfw_projects', JSON.stringify(mergedProjects));
         }
         if (data.indicators !== undefined) {
           setIndicators(data.indicators);
@@ -1147,6 +1211,7 @@ export default function App() {
         name: projectData.name || '',
         location: projectData.location || '',
         owner: projectData.owner || '',
+        pic: projectData.owner || '',
         donor: projectData.donor,
         status: projectData.status || 'Aktif',
         startDate: projectData.startDate,
@@ -1157,6 +1222,7 @@ export default function App() {
         desc: projectData.desc,
         note: projectData.note,
         goal: projectData.goal,
+        assignedMembers: projectData.assignedMembers || [],
         isArchived: false,
       };
 
@@ -3124,6 +3190,7 @@ export default function App() {
               userRole={currentRole}
               activeStaffId={activeStaffId}
               activeStaffName={activeStaff.name}
+              activeStaffEmail={activeStaff.email}
               onSelectProject={handleSelectProject}
               onAddProjectClick={() => setActiveTab('add_project')}
               onOpenImportModal={() => setIsImportModalOpen(true)}
@@ -3138,6 +3205,7 @@ export default function App() {
               userRole={currentRole}
               activeStaffId={activeStaffId}
               activeStaffName={activeStaff.name}
+              activeStaffEmail={activeStaff.email}
               onSelectProject={handleSelectProject}
               onEditProject={handleEditProjectClick}
               onArchiveProject={handleArchiveProject}
@@ -3152,7 +3220,7 @@ export default function App() {
               const proj = projects.find((p) => isIdMatch(p.id, selectedProjectId));
               if (!proj) return <p className="text-xs">Proyek tidak ditemukan.</p>;
               
-              const hasAccess = isUserAssignedToProject(currentRole, proj, activeStaffId, activeStaff.name);
+              const hasAccess = isUserAssignedToProject(currentRole, proj, activeStaffId, activeStaff.name, activeStaff.email);
               if (!hasAccess) {
                 return (
                   <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center space-y-3">
@@ -3175,7 +3243,7 @@ export default function App() {
               const projectOutcomes = outcomes.filter((o) => isIdMatch(o.projectId, selectedProjectId));
               const projectIndicators = indicators.filter((i) => isIdMatch(i.projectId, selectedProjectId));
               const projectActs = activities.filter((a) => isIdMatch(a.projectId, selectedProjectId));
-              const effectiveProjectRole = getProjectEffectiveRole(currentRole, proj, activeStaffId, activeStaff.name);
+              const effectiveProjectRole = getProjectEffectiveRole(currentRole, proj, activeStaffId, activeStaff.name, activeStaff.email);
 
               return (
                 <ProjectDetailTab
@@ -4516,6 +4584,8 @@ ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_
         isOpen={isRoleModalOpen}
         currentRole={currentRole}
         isSuperAdmin={true}
+        staffList={staff}
+        activeStaffId={activeStaffId}
         onClose={() => setIsRoleModalOpen(false)}
         onSelectRole={(r) => {
           setActiveRoleOverride(r);
@@ -4531,6 +4601,21 @@ ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_
             setSyncToastMsg('');
           }, 3000);
           setIsRoleModalOpen(false);
+        }}
+        onSelectStaff={(stId) => {
+          const st = staff.find((s) => s.id === stId);
+          if (!st) return;
+          setActiveStaffId(st.id);
+          localStorage.setItem('dfw_active_staff_id', st.id);
+          const targetRole = st.systemRole || 'field_officer';
+          setActiveRoleOverride(targetRole);
+          localStorage.setItem('dfw_active_role', targetRole);
+          setSyncToast('success');
+          setSyncToastMsg(`Sesi beralih ke akun: ${st.name} (${getRolePermissions(targetRole).title})`);
+          setTimeout(() => {
+            setSyncToast('');
+            setSyncToastMsg('');
+          }, 3000);
         }}
       />
 

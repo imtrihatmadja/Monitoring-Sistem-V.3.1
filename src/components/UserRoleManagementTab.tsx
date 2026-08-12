@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Staff, Project, ProjectMember } from '../types';
 import { UserRoleType, USER_ROLES, getRolePermissions } from '../lib/rbac';
 import {
@@ -43,6 +43,18 @@ export const UserRoleManagementTab: React.FC<UserRoleManagementTabProps> = ({
   const [filterProject, setFilterProject] = useState<string>('all');
   const [successToast, setSuccessToast] = useState<string>('');
 
+  useEffect(() => {
+    if (!selectedStaffId && staffList.length > 0) {
+      setSelectedStaffId(staffList[0].id);
+    }
+  }, [staffList, selectedStaffId]);
+
+  useEffect(() => {
+    if (!selectedProjectId && projects.length > 0) {
+      setSelectedProjectId(projects[0].id);
+    }
+  }, [projects, selectedProjectId]);
+
   const activeProjects = projects.filter(p => !p.isArchived);
 
   // Helper to show temporary notification
@@ -78,25 +90,25 @@ export const UserRoleManagementTab: React.FC<UserRoleManagementTabProps> = ({
       if (proj.id === selectedProjectId) {
         const currentMembers = proj.assignedMembers || [];
         // Check if member already exists in project
-        const existingIdx = currentMembers.findIndex(m => m.staffId === selectedStaffId || m.staffName === staffMember.name);
+        const existingIdx = currentMembers.findIndex(m => 
+          m.staffId === selectedStaffId || 
+          (m.staffName && m.staffName.toLowerCase() === staffMember.name.toLowerCase()) ||
+          (m.staffEmail && staffMember.email && m.staffEmail.toLowerCase() === staffMember.email.toLowerCase())
+        );
         
         let newMembers: ProjectMember[];
+        const newMemberItem: ProjectMember = {
+          staffId: staffMember.id,
+          staffName: staffMember.name,
+          staffEmail: staffMember.email,
+          projectRole: selectedProjectRole,
+        };
+
         if (existingIdx >= 0) {
           newMembers = [...currentMembers];
-          newMembers[existingIdx] = {
-            staffId: staffMember.id,
-            staffName: staffMember.name,
-            projectRole: selectedProjectRole,
-          };
+          newMembers[existingIdx] = newMemberItem;
         } else {
-          newMembers = [
-            ...currentMembers,
-            {
-              staffId: staffMember.id,
-              staffName: staffMember.name,
-              projectRole: selectedProjectRole,
-            }
-          ];
+          newMembers = [...currentMembers, newMemberItem];
         }
         return { ...proj, assignedMembers: newMembers };
       }

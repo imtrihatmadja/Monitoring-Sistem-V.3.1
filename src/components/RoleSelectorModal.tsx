@@ -1,21 +1,28 @@
 import React from 'react';
 import { UserRoleType, USER_ROLES, getRolePermissions } from '../lib/rbac';
-import { ShieldCheck, Check, X, Lock, Info, Users, Crown, BarChart3, FileText, Eye } from 'lucide-react';
+import { Staff } from '../types';
+import { ShieldCheck, Check, X, Lock, Info, Users, Crown, BarChart3, FileText, Eye, UserCheck } from 'lucide-react';
 
 interface RoleSelectorModalProps {
   isOpen: boolean;
   currentRole: UserRoleType;
   isSuperAdmin?: boolean;
+  staffList?: Staff[];
+  activeStaffId?: string | null;
   onClose: () => void;
   onSelectRole: (role: UserRoleType) => void;
+  onSelectStaff?: (staffId: string) => void;
 }
 
 export const RoleSelectorModal: React.FC<RoleSelectorModalProps> = ({
   isOpen,
   currentRole,
   isSuperAdmin = false,
+  staffList = [],
+  activeStaffId = null,
   onClose,
   onSelectRole,
+  onSelectStaff,
 }) => {
   if (!isOpen) return null;
 
@@ -34,10 +41,10 @@ export const RoleSelectorModal: React.FC<RoleSelectorModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-extrabold text-white leading-tight">
-                Role-Based Access Control (RBAC) - Simulasi Peran Pengguna
+                Role-Based Access Control (RBAC) - Simulasi Peran &amp; Pengguna
               </h2>
               <p className="text-xs text-slate-400 font-medium">
-                Pilih peran pengguna di bawah ini untuk mensimulasikan wewenang &amp; batas akses portal MONEV
+                Pilih peran dan akun staf aktif di bawah ini untuk menguji wewenang &amp; keterlibatan proyek
               </p>
             </div>
           </div>
@@ -55,12 +62,61 @@ export const RoleSelectorModal: React.FC<RoleSelectorModalProps> = ({
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3.5 text-xs text-blue-900 flex items-start gap-2.5">
             <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
-              <p className="font-extrabold text-blue-950">Simulasi Peran Pengguna Interaktif (RBAC)</p>
+              <p className="font-extrabold text-blue-950">Simulasi Peran &amp; Pengguna Interaktif (RBAC)</p>
               <p className="text-[11px] text-blue-800 leading-relaxed">
-                Pilih salah satu peran di bawah ini untuk mensimulasikan tampilan portal MONEV, hak akses, dan batas wewenang secara langsung. Anda dapat berganti peran kapan saja.
+                Filter proyek bergantung pada **Siapa Pengguna Aktif** dan **Apa Perannya**. Untuk menguji proyek yang di-assign ke Staf tertentu (misal: Nirmala atau Staf Lapangan), pilih nama staf tersebut di bawah ini.
               </p>
             </div>
           </div>
+
+          {/* Active Staff Selector Section */}
+          {staffList.length > 0 && onSelectStaff && (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-blue-600" />
+                  Pilih Akun Staf Aktif untuk Menguji Proyek Ter-assign:
+                </span>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  {staffList.length} Staf Terdaftar
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {staffList.map((st) => {
+                  const isSelected = activeStaffId === st.id;
+                  const rCfg = USER_ROLES[st.systemRole || 'field_officer'] || USER_ROLES.field_officer;
+
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => onSelectStaff(st.id)}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-600/30 font-bold'
+                          : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-black truncate">{st.name}</p>
+                        <p className={`text-[10px] truncate ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}>
+                          {st.email || st.role}
+                        </p>
+                      </div>
+                      <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${
+                        isSelected 
+                          ? 'bg-blue-800 text-white border border-blue-400/40' 
+                          : `${rCfg.badgeBg} ${rCfg.badgeText} border ${rCfg.badgeBorder}`
+                      } shrink-0`}>
+                        {rCfg.title.split('/')[0].trim()}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Active Role Card Highlight */}
           <div className={`p-4 rounded-xl border ${currentPermissions.badgeBorder} ${currentPermissions.badgeBg} flex items-center justify-between gap-4`}>

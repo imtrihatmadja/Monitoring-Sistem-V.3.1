@@ -11,6 +11,7 @@ export interface Outcome {
 export interface ProjectMember {
   staffId: string;
   staffName?: string;
+  staffEmail?: string;
   projectRole: UserRoleType;
 }
 
@@ -19,6 +20,7 @@ export interface Project {
   name: string;
   location: string;
   owner: string;
+  pic?: string;
   donor?: string;
   status: ProjectStatus;
   startDate?: string;

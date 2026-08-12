@@ -106,11 +106,13 @@ export const getRolePermissions = (role: UserRoleType): RolePermissions => {
 export function getProjectEffectiveRole(
   globalRole: UserRoleType,
   project?: {
-    assignedMembers?: { staffId: string; staffName?: string; projectRole: UserRoleType }[];
+    assignedMembers?: { staffId: string; staffName?: string; staffEmail?: string; projectRole: UserRoleType }[];
     pic?: string;
+    owner?: string;
   },
   staffId?: string,
-  staffName?: string
+  staffName?: string,
+  staffEmail?: string
 ): UserRoleType {
   // Super Admin retains super_admin access globally
   if (globalRole === 'super_admin') {
@@ -126,18 +128,41 @@ export function getProjectEffectiveRole(
 
   const cleanStaffId = staffId ? staffId.trim().toLowerCase() : '';
   const cleanStaffName = staffName ? staffName.trim().toLowerCase() : '';
+  const cleanStaffEmail = staffEmail ? staffEmail.trim().toLowerCase() : '';
+  const emailPrefix = cleanStaffEmail.includes('@') ? cleanStaffEmail.split('@')[0] : cleanStaffEmail;
 
-  // Check if staffId or staffName has an explicit role assigned in this project
+  const matchesUser = (mId: string, mName: string, mEmail: string) => {
+    const cleanMId = (mId || '').trim().toLowerCase();
+    const cleanMName = (mName || '').trim().toLowerCase();
+    const cleanMEmail = (mEmail || '').trim().toLowerCase();
+    const mEmailPrefix = cleanMEmail.includes('@') ? cleanMEmail.split('@')[0] : cleanMEmail;
+
+    // Direct exact matches
+    if (cleanStaffId && (cleanMId === cleanStaffId || cleanMName === cleanStaffId || cleanMEmail === cleanStaffId)) return true;
+    if (cleanStaffName && (cleanMId === cleanStaffName || cleanMName === cleanStaffName || cleanMEmail === cleanStaffName)) return true;
+    if (cleanStaffEmail && (cleanMId === cleanStaffEmail || cleanMName === cleanStaffEmail || cleanMEmail === cleanStaffEmail)) return true;
+
+    // Substring / partial name matches
+    if (cleanStaffName && cleanStaffName.length >= 3 && (cleanMName.includes(cleanStaffName) || cleanStaffName.includes(cleanMName))) return true;
+    if (cleanStaffEmail && cleanStaffEmail.length >= 3 && (cleanMEmail.includes(cleanStaffEmail) || cleanStaffEmail.includes(cleanMEmail))) return true;
+
+    // Email prefix matches (e.g. "nirmala" matches "nirmala@dfw.or.id" or staff ID "nirmala")
+    if (emailPrefix && emailPrefix.length >= 3) {
+      if (cleanMId.includes(emailPrefix) || cleanMName.includes(emailPrefix) || cleanMEmail.includes(emailPrefix)) return true;
+    }
+    if (mEmailPrefix && mEmailPrefix.length >= 3) {
+      if (cleanStaffId.includes(mEmailPrefix) || cleanStaffName.includes(mEmailPrefix) || cleanStaffEmail.includes(mEmailPrefix)) return true;
+    }
+
+    return false;
+  };
+
+  // Check if staffId, staffName, or staffEmail has an explicit role assigned in this project
   if (project.assignedMembers && Array.isArray(project.assignedMembers)) {
-    const found = project.assignedMembers.find((m) => {
-      const mId = (m.staffId || '').trim().toLowerCase();
-      const mName = (m.staffName || '').trim().toLowerCase();
+    const found = project.assignedMembers.find((m) =>
+      matchesUser(m.staffId, m.staffName || '', m.staffEmail || '')
+    );
 
-      const matchId = Boolean(cleanStaffId && (mId === cleanStaffId || mName === cleanStaffId));
-      const matchName = Boolean(cleanStaffName && (mId === cleanStaffName || mName === cleanStaffName));
-
-      return matchId || matchName;
-    });
     if (found) {
       return found.projectRole;
     }
@@ -150,45 +175,98 @@ export function getProjectEffectiveRole(
 export function isUserAssignedToProject(
   globalRole: UserRoleType,
   project: {
-    assignedMembers?: { staffId: string; staffName?: string; projectRole: UserRoleType }[];
+    id?: string;
+    name?: string;
+    assignedMembers?: { staffId: string; staffName?: string; staffEmail?: string; projectRole: UserRoleType }[];
     pic?: string;
+    owner?: string;
   },
   staffId?: string,
-  staffName?: string
+  staffName?: string,
+  staffEmail?: string
 ): boolean {
+  const projLabel = project.name || project.id || 'Proyek Tanpa Nama';
+
   // Super Admin and Donor/Viewer see ALL projects
   if (globalRole === 'super_admin' || globalRole === 'donor_viewer') {
+    console.log(`[RBACCheck] ALLOWED (Global Role override: ${globalRole}) for project "${projLabel}"`);
     return true;
   }
 
-  if (!staffId && !staffName) {
+  if (!staffId && !staffName && !staffEmail) {
+    console.warn(`[RBACCheck] DENIED (No staff identification provided: staffId=${staffId}, name=${staffName}, email=${staffEmail}) for project "${projLabel}"`);
     return false;
   }
 
   const cleanStaffId = staffId ? staffId.trim().toLowerCase() : '';
   const cleanStaffName = staffName ? staffName.trim().toLowerCase() : '';
+  const cleanStaffEmail = staffEmail ? staffEmail.trim().toLowerCase() : '';
+  const emailPrefix = cleanStaffEmail.includes('@') ? cleanStaffEmail.split('@')[0] : cleanStaffEmail;
 
-  // 2. Check assignedMembers list if populated
-  if (project.assignedMembers && project.assignedMembers.length > 0) {
-    return project.assignedMembers.some((m) => {
-      const mId = (m.staffId || '').trim().toLowerCase();
-      const mName = (m.staffName || '').trim().toLowerCase();
+  const matchesUser = (mId: string, mName: string, mEmail: string) => {
+    const cleanMId = (mId || '').trim().toLowerCase();
+    const cleanMName = (mName || '').trim().toLowerCase();
+    const cleanMEmail = (mEmail || '').trim().toLowerCase();
+    const mEmailPrefix = cleanMEmail.includes('@') ? cleanMEmail.split('@')[0] : cleanMEmail;
 
-      const matchId = Boolean(cleanStaffId && (mId === cleanStaffId || mName === cleanStaffId));
-      const matchName = Boolean(cleanStaffName && (mId === cleanStaffName || mName === cleanStaffName));
+    // Direct exact matches
+    if (cleanStaffId && (cleanMId === cleanStaffId || cleanMName === cleanStaffId || cleanMEmail === cleanStaffId)) return true;
+    if (cleanStaffName && (cleanMId === cleanStaffName || cleanMName === cleanStaffName || cleanMEmail === cleanStaffName)) return true;
+    if (cleanStaffEmail && (cleanMId === cleanStaffEmail || cleanMName === cleanStaffEmail || cleanMEmail === cleanStaffEmail)) return true;
 
-      return matchId || matchName;
-    });
+    // Substring / partial name matches
+    if (cleanStaffName && cleanStaffName.length >= 3 && (cleanMName.includes(cleanStaffName) || cleanStaffName.includes(cleanMName))) return true;
+    if (cleanStaffEmail && cleanStaffEmail.length >= 3 && (cleanMEmail.includes(cleanStaffEmail) || cleanStaffEmail.includes(cleanMEmail))) return true;
+
+    // Email prefix matches (e.g. "nirmala" matches "nirmala@dfw.or.id")
+    if (emailPrefix && emailPrefix.length >= 3) {
+      if (cleanMId.includes(emailPrefix) || cleanMName.includes(emailPrefix) || cleanMEmail.includes(emailPrefix)) return true;
+    }
+    if (mEmailPrefix && mEmailPrefix.length >= 3) {
+      if (cleanStaffId.includes(mEmailPrefix) || cleanStaffName.includes(mEmailPrefix) || cleanStaffEmail.includes(mEmailPrefix)) return true;
+    }
+
+    return false;
+  };
+
+  // 1. Check assignedMembers list
+  if (project.assignedMembers && Array.isArray(project.assignedMembers) && project.assignedMembers.length > 0) {
+    const matchedMember = project.assignedMembers.find((m) =>
+      matchesUser(m.staffId, m.staffName || '', m.staffEmail || '')
+    );
+
+    if (matchedMember) {
+      console.log(`[RBACCheck] ALLOWED (Found in assignedMembers: role=${matchedMember.projectRole}, staffId=${matchedMember.staffId}, name=${matchedMember.staffName}) for project "${projLabel}"`, {
+        user: { staffId, staffName, staffEmail, globalRole },
+        matchedMember
+      });
+      return true;
+    }
   }
 
-  // 3. Fallback to project.pic if assignedMembers is not explicitly populated
-  if (project.pic) {
-    const cleanPic = project.pic.trim().toLowerCase();
-    const matchPicId = Boolean(cleanStaffId && cleanPic === cleanStaffId);
-    const matchPicName = Boolean(cleanStaffName && cleanPic === cleanStaffName);
-    return Boolean(matchPicId || matchPicName);
+  // 2. Check project owner or PIC field
+  const picOrOwner = (project.pic || project.owner || '').trim().toLowerCase();
+  if (picOrOwner) {
+    if (matchesUser(picOrOwner, picOrOwner, picOrOwner)) {
+      console.log(`[RBACCheck] ALLOWED (Matched PIC/Owner field: "${picOrOwner}") for project "${projLabel}"`, {
+        user: { staffId, staffName, staffEmail, globalRole }
+      });
+      return true;
+    }
   }
 
-  // 4. Default: Unassigned projects are restricted to Super Admin only
+  // 3. Fallback: If no specific assignedMembers are configured for this project, 
+  // allow access according to global role permissions.
+  if (!project.assignedMembers || project.assignedMembers.length === 0) {
+    console.log(`[RBACCheck] ALLOWED (No restrictive team assigned to project - fallback open) for project "${projLabel}"`);
+    return true;
+  }
+
+  console.warn(`[RBACCheck] DENIED (User not in assignedMembers [count: ${project.assignedMembers.length}] nor PIC/Owner "${picOrOwner}") for project "${projLabel}"`, {
+    user: { cleanStaffId, cleanStaffName, cleanStaffEmail, globalRole },
+    projectAssignedMembers: project.assignedMembers,
+    picOrOwner
+  });
+
   return false;
 }

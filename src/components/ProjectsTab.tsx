@@ -17,6 +17,7 @@ interface ProjectsTabProps {
   userRole?: UserRoleType;
   activeStaffId?: string;
   activeStaffName?: string;
+  activeStaffEmail?: string;
   onSelectProject: (projectId: string) => void;
   onEditProject: (projectId: string) => void;
   onArchiveProject: (projectId: string) => void;
@@ -32,6 +33,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
   userRole = 'super_admin',
   activeStaffId = '',
   activeStaffName = '',
+  activeStaffEmail = '',
   onSelectProject,
   onEditProject,
   onArchiveProject,
@@ -45,7 +47,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
 
   // Filter projects by active staff assignment and non-archived status
   const nonArchivedProjects = projects.filter(
-    (p) => !p.isArchived && isUserAssignedToProject(userRole as UserRoleType, p, activeStaffId, activeStaffName)
+    (p) => !p.isArchived && isUserAssignedToProject(userRole as UserRoleType, p, activeStaffId, activeStaffName, activeStaffEmail)
   );
 
   const filteredProjects = nonArchivedProjects.filter((p) => {
@@ -253,7 +255,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                       ? Math.round((p.budgetActual / p.budgetApproved) * 100) 
                       : 0;
 
-                    const effRole = getProjectEffectiveRole(userRole as UserRoleType, p, activeStaffId, activeStaffName);
+                    const effRole = getProjectEffectiveRole(userRole as UserRoleType, p, activeStaffId, activeStaffName, activeStaffEmail);
                     const effPermissions = USER_ROLES[effRole] || USER_ROLES.field_officer;
                     const memberCount = p.assignedMembers?.length || 0;
 
@@ -390,7 +392,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                 ? Math.round((p.budgetActual / p.budgetApproved) * 100) 
                 : 0;
 
-              const effRole = getProjectEffectiveRole(userRole as UserRoleType, p, activeStaffId, activeStaffName);
+              const effRole = getProjectEffectiveRole(userRole as UserRoleType, p, activeStaffId, activeStaffName, activeStaffEmail);
               const effPermissions = USER_ROLES[effRole] || USER_ROLES.field_officer;
               const memberCount = p.assignedMembers?.length || 0;
 
