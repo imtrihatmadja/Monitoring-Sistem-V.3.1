@@ -2,7 +2,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { safeStorage } from './lib/safeStorage';
 
-// Get initial values from localStorage falling back to import.meta.env
+// Permanent global Supabase credentials for DFW Indonesia
+export const DEFAULT_SUPABASE_URL = "https://tjkulgabssjtvnvjmnsn.supabase.co";
+export const DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqa3VsZ2Fic3NqdHZudmptbnNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4OTExNjEsImV4cCI6MjA5ODQ2NzE2MX0.hjteUJ6WzMZ4jYwpeoU8AFEagO1GDBJPKapD23I77FI";
+
+// Get initial values from localStorage, falling back to import.meta.env or DEFAULT_SUPABASE_URL
 const getInitialConfig = () => {
   const localUrl = safeStorage.getItem('dfw_supabase_url');
   const localKey = safeStorage.getItem('dfw_supabase_anon_key');
@@ -10,8 +14,8 @@ const getInitialConfig = () => {
   const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
   const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
   
-  const url = (localUrl || envUrl || '').trim();
-  const key = (localKey || envKey || '').trim();
+  const url = (localUrl || envUrl || DEFAULT_SUPABASE_URL).trim();
+  const key = (localKey || envKey || DEFAULT_SUPABASE_ANON_KEY).trim();
   
   const isConfigured = !!url && !!key && !url.includes('your-supabase-project');
   return { url, key, isConfigured };
@@ -78,6 +82,13 @@ export function reinitializeSupabase(url: string, anonKey: string): boolean {
   return false;
 }
 
+// Reset to global standard DFW Supabase backend
+export function resetToDefaultSupabase(): boolean {
+  safeStorage.removeItem('dfw_supabase_url');
+  safeStorage.removeItem('dfw_supabase_anon_key');
+  return reinitializeSupabase(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY);
+}
+
 // Helper to handle safe Supabase db actions with try-catch and falling back to localStorage
 export async function safeSupabaseAction<T>(
   action: () => Promise<T>,
@@ -102,5 +113,6 @@ export function getSupabaseClient() {
 export function getIsSupabaseConfigured() {
   return isSupabaseConfigured;
 }
+
 
 

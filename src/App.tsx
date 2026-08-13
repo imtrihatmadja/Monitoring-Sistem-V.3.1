@@ -13,7 +13,7 @@ import {
   INITIAL_DOCUMENTS,
 } from './data';
 import { SupabaseSync } from './lib/supabaseSync';
-import { isSupabaseConfigured, supabase, reinitializeSupabase } from './supabaseClient';
+import { isSupabaseConfigured, supabase, reinitializeSupabase, resetToDefaultSupabase, DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY } from './supabaseClient';
 import { createClient } from '@supabase/supabase-js';
 
 
@@ -279,8 +279,8 @@ export default function App() {
   const [selectedStaffTasksName, setSelectedStaffTasksName] = useState<string>('');
 
   // Supabase live configuration states
-  const [dbUrl, setDbUrl] = useState(localStorage.getItem('dfw_supabase_url') || import.meta.env.VITE_SUPABASE_URL || '');
-  const [dbKey, setDbKey] = useState(localStorage.getItem('dfw_supabase_anon_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || '');
+  const [dbUrl, setDbUrl] = useState(localStorage.getItem('dfw_supabase_url') || import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL);
+  const [dbKey, setDbKey] = useState(localStorage.getItem('dfw_supabase_anon_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY);
   const [dbIsConfigured, setDbIsConfigured] = useState(isSupabaseConfigured);
   const [isTestingDb, setIsTestingDb] = useState(false);
   const [dbError, setDbError] = useState('');
@@ -3598,18 +3598,24 @@ export default function App() {
                   {dbIsConfigured ? '✓' : '!'}
                 </div>
                 <div className="flex-1 space-y-1">
-                  <div className="font-bold text-[10px] uppercase tracking-wider text-slate-400">Status Sambungan</div>
-                  <div className="text-sm font-bold text-slate-800">
+                  <div className="font-bold text-[10px] uppercase tracking-wider text-slate-400">Status Sambungan Terhubung Server</div>
+                  <div className="text-sm font-extrabold text-slate-800">
                     {dbIsConfigured 
-                      ? 'Terhubung dengan Supabase Cloud (Aktif)' 
+                      ? 'Terhubung ke Supabase Cloud DFW Indonesia (Permanen & Multi-Device)' 
                       : 'Menggunakan Penyimpanan Lokal (Offline Fallback)'}
                   </div>
                   <p className="text-xs text-slate-500 leading-relaxed">
                     {dbIsConfigured 
-                      ? `Semua pengisian, pengeditan, atau penghapusan silih berganti dari proyek, kegiatan, indikator, atau dokumen saat ini disinkronisasikan ke Supabase secara langsung.`
-                      : 'Saat ini data hanya tersimpan secara aman di browser lokal Anda. Jika cache browser dibersihkan, data mungkin terhapus. Hubungkan dengan Supabase Cloud API untuk sinkronisasi jangka panjang.'}
+                      ? `Aplikasi ini telah dikonfigurasi secara global. Saat membuka aplikasi di perangkat baru (PC, Laptop, HP, atau browser lain), sistem akan otomatis terhubung ke Supabase tanpa perlu diatur ulang.`
+                      : 'Saat ini data tersimpan di browser lokal. Klik "Reset ke Default DFW Global" di bawah untuk mengaktifkan kembali koneksi otomatis.'}
                   </p>
                 </div>
+              </div>
+
+              {/* Info Banner Multi-Device */}
+              <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-xl flex items-center gap-2 text-xs text-emerald-800 font-medium">
+                <span className="text-base shrink-0">📱💻</span>
+                <span><strong>Koneksi Otomatis Multi-Perangkat:</strong> Konfigurasi Supabase telah tersimpan secara terpusat. Anda dapat membuka web ini dari perangkat mana saja tanpa perlu memasukkan URL atau API Key lagi!</span>
               </div>
 
               {/* Form Input fields */}
@@ -3648,7 +3654,7 @@ export default function App() {
               )}
 
               {/* Buttons Actions */}
-              <div className="pt-2 flex flex-col sm:flex-row gap-3">
+              <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
                 <button
                   onClick={async () => {
                     setIsTestingDb(true);
@@ -3685,9 +3691,35 @@ export default function App() {
                     }
                   }}
                   disabled={isTestingDb}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs py-2.5 px-4 rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs py-2.5 px-4 rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2 shadow-xs"
                 >
                   {isTestingDb ? 'Sedang Memverifikasi...' : 'Tes & Hubungkan Supabase'}
+                </button>
+
+                <button
+                  onClick={async () => {
+                    setIsTestingDb(true);
+                    setDbError('');
+                    try {
+                      resetToDefaultSupabase();
+                      setDbUrl(DEFAULT_SUPABASE_URL);
+                      setDbKey(DEFAULT_SUPABASE_ANON_KEY);
+                      setDbIsConfigured(true);
+                      await SupabaseSync.fetchSchemaInfo(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY);
+                      await checkSupabaseTables(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY);
+                      setSyncToast('success');
+                      setSyncToastMsg('Koneksi dikembalikan ke Database Default DFW Indonesia!');
+                      setTimeout(() => { setSyncToast(''); setSyncToastMsg(''); }, 4000);
+                    } catch (err: any) {
+                      setDbError(err.message || 'Gagal memuat konfigurasi default.');
+                    } finally {
+                      setIsTestingDb(false);
+                    }
+                  }}
+                  className="sm:w-auto bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-bold text-xs py-2.5 px-4 rounded-xl cursor-pointer transition-all shrink-0"
+                  title="Kembalikan koneksi ke Supabase DFW Indonesia default"
+                >
+                  🔄 Reset ke Default DFW Global
                 </button>
 
                 {dbIsConfigured && (
@@ -3712,7 +3744,7 @@ export default function App() {
                         }
                       });
                     }}
-                    className="sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs py-2.5 px-4 rounded-xl cursor-pointer transition-all"
+                    className="sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs py-2.5 px-4 rounded-xl cursor-pointer transition-all shrink-0"
                   >
                     Putuskan Koneksi
                   </button>
