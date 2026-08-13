@@ -20,16 +20,43 @@ export interface RolePermissions {
   isReadOnly: boolean;               // Pure read-only view
 }
 
+// Authorized Admin Emails with Full Write/Edit Access
+export const AUTHORIZED_ADMIN_EMAILS = [
+  'admin@dfw.or.id',
+  'imam.trihatmadja@dfw.or.id'
+];
+
+/**
+ * Checks if the user is one of the 2 designated admin users (Program Director or MEL Officer)
+ */
+export function isAuthorizedAdmin(email?: string, name?: string, staffId?: string): boolean {
+  if (!email && !name && !staffId) return false;
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanName = (name || '').trim().toLowerCase();
+  const cleanStaffId = (staffId || '').trim().toLowerCase();
+
+  // Check exact email
+  if (cleanEmail && AUTHORIZED_ADMIN_EMAILS.includes(cleanEmail)) return true;
+
+  // Check staff ID match (st-01: Imam, st-02: Admin DFW)
+  if (cleanStaffId === 'st-01' || cleanStaffId === 'st-02' || cleanStaffId === 'admin') return true;
+
+  // Check name match
+  if (cleanName.includes('imam trihatmadja') || cleanName.includes('admin dfw')) return true;
+
+  return false;
+}
+
 export const USER_ROLES: Record<UserRoleType, RolePermissions> = {
   super_admin: {
     id: 'super_admin',
-    title: 'Administrator & Direktur Program',
+    title: 'Administrator (Program Director & Petugas MEL)',
     subtitle: 'Akses Penuh Manajemen Sistem & Anggaran',
     badgeBg: 'bg-purple-100',
     badgeText: 'text-purple-800',
     badgeBorder: 'border-purple-300',
     badgeIcon: '👑',
-    description: 'Akses penuh untuk membuat/menghapus proyek, mengatur anggaran, serta mengelola akun pengguna dan sistem.',
+    description: 'Akses penuh untuk mengelola proyek, indikator, progress, anggaran, dan data sistem.',
     canManageProjects: true,
     canManageIndicators: true,
     canApproveProgress: true,
@@ -42,45 +69,45 @@ export const USER_ROLES: Record<UserRoleType, RolePermissions> = {
   },
   project_coordinator: {
     id: 'project_coordinator',
-    title: 'Project Coordinator / Officer',
-    subtitle: 'Manajemen Indikator, Persetujuan & Laporan Resmi',
-    badgeBg: 'bg-blue-100',
-    badgeText: 'text-blue-800',
-    badgeBorder: 'border-blue-300',
-    badgeIcon: '📊',
-    description: 'Mengelola indikator, menyetujui progress aktivitas, serta mengunduh laporan resmi proyek.',
-    canManageProjects: false,
-    canManageIndicators: true,
-    canApproveProgress: true,
-    canUpdateFieldProgress: true,
-    canManageUsers: false,
-    canManageIssues: true,
-    canManageBeneficiaries: true,
-    canViewReports: true,
-    isReadOnly: false,
-  },
-  field_officer: {
-    id: 'field_officer',
-    title: 'Staf Lapangan / Field Officer (PIC)',
-    subtitle: 'Pembaruan Progress, Catatan Lapangan & Dokumentasi',
-    badgeBg: 'bg-emerald-100',
-    badgeText: 'text-emerald-800',
-    badgeBorder: 'border-emerald-300',
-    badgeIcon: '📑',
-    description: 'Hanya dapat mengupdate persentase progress aktivitas yang ditugaskan, menambahkan catatan/hambatan harian, serta mengunggah bukti dokumen.',
+    title: 'Pengguna Eksternal (Mode Lihat-Saja)',
+    subtitle: 'Mode Lihat-Saja (Read-Only)',
+    badgeBg: 'bg-amber-100',
+    badgeText: 'text-amber-800',
+    badgeBorder: 'border-amber-300',
+    badgeIcon: '👁️',
+    description: 'Mode Read-Only (hanya melihat dashboard kemajuan dan mengunduh laporan).',
     canManageProjects: false,
     canManageIndicators: false,
     canApproveProgress: false,
-    canUpdateFieldProgress: true,
+    canUpdateFieldProgress: false,
     canManageUsers: false,
-    canManageIssues: true,
-    canManageBeneficiaries: true,
+    canManageIssues: false,
+    canManageBeneficiaries: false,
     canViewReports: true,
-    isReadOnly: false,
+    isReadOnly: true,
+  },
+  field_officer: {
+    id: 'field_officer',
+    title: 'Pengguna Eksternal (Mode Lihat-Saja)',
+    subtitle: 'Mode Lihat-Saja (Read-Only)',
+    badgeBg: 'bg-amber-100',
+    badgeText: 'text-amber-800',
+    badgeBorder: 'border-amber-300',
+    badgeIcon: '👁️',
+    description: 'Mode Read-Only (hanya melihat dashboard kemajuan dan mengunduh laporan).',
+    canManageProjects: false,
+    canManageIndicators: false,
+    canApproveProgress: false,
+    canUpdateFieldProgress: false,
+    canManageUsers: false,
+    canManageIssues: false,
+    canManageBeneficiaries: false,
+    canViewReports: true,
+    isReadOnly: true,
   },
   donor_viewer: {
     id: 'donor_viewer',
-    title: 'Donor / Viewer Eksternal',
+    title: 'Pengguna Eksternal / Tamu',
     subtitle: 'Mode Lihat-Saja (Read-Only)',
     badgeBg: 'bg-amber-100',
     badgeText: 'text-amber-800',
@@ -100,12 +127,15 @@ export const USER_ROLES: Record<UserRoleType, RolePermissions> = {
 };
 
 export const getRolePermissions = (role: UserRoleType): RolePermissions => {
-  return USER_ROLES[role] || USER_ROLES.super_admin;
+  if (role === 'super_admin') {
+    return USER_ROLES.super_admin;
+  }
+  return USER_ROLES.donor_viewer;
 };
 
 export function getProjectEffectiveRole(
   globalRole: UserRoleType,
-  project?: {
+  _project?: {
     assignedMembers?: { staffId: string; staffName?: string; staffEmail?: string; projectRole: UserRoleType }[];
     pic?: string;
     owner?: string;
@@ -114,159 +144,305 @@ export function getProjectEffectiveRole(
   staffName?: string,
   staffEmail?: string
 ): UserRoleType {
-  // Super Admin retains super_admin access globally
-  if (globalRole === 'super_admin') {
+  if (globalRole === 'super_admin' || isAuthorizedAdmin(staffEmail, staffName, staffId)) {
     return 'super_admin';
   }
+  return 'donor_viewer';
+}
 
-  // Donor Viewer retains donor_viewer access globally (View Only)
-  if (globalRole === 'donor_viewer') {
-    return 'donor_viewer';
-  }
+export interface ProjectAssignmentVerificationResult {
+  isAssigned: boolean;
+  reason: 'super_admin_override' | 'donor_viewer_override' | 'missing_user_identity' | 'open_fallback_no_assigned_members' | 'assigned_member_match' | 'pic_owner_match' | 'not_assigned';
+  matchedMember?: { staffId: string; staffName?: string; staffEmail?: string; projectRole?: UserRoleType };
+  details: {
+    projectId?: string;
+    projectName?: string;
+    user: {
+      staffId?: string;
+      staffName?: string;
+      staffEmail?: string;
+      globalRole?: UserRoleType;
+      cleanStaffId: string;
+      cleanStaffName: string;
+      cleanStaffEmail: string;
+      emailPrefix: string;
+    };
+    picOrOwner?: string;
+    assignedMembersCount: number;
+    memberChecks: Array<{
+      index: number;
+      member: { staffId: string; staffName?: string; staffEmail?: string; projectRole?: UserRoleType };
+      matches: {
+        exactIdMatch: boolean;
+        exactNameMatch: boolean;
+        exactEmailMatch: boolean;
+        partialNameMatch: boolean;
+        partialEmailMatch: boolean;
+        emailPrefixMatch: boolean;
+      };
+      isMatch: boolean;
+    }>;
+  };
+}
 
-  if (!project) return globalRole;
-
+export function verifyProjectAssignment(
+  project: {
+    id?: string;
+    name?: string;
+    assignedMembers?: { staffId: string; staffName?: string; staffEmail?: string; projectRole?: UserRoleType }[];
+    pic?: string;
+    owner?: string;
+  },
+  staffId?: string,
+  staffName?: string,
+  staffEmail?: string,
+  globalRole?: UserRoleType
+): ProjectAssignmentVerificationResult {
+  const projLabel = project?.name || project?.id || 'Proyek Tanpa Nama';
   const cleanStaffId = staffId ? staffId.trim().toLowerCase() : '';
   const cleanStaffName = staffName ? staffName.trim().toLowerCase() : '';
   const cleanStaffEmail = staffEmail ? staffEmail.trim().toLowerCase() : '';
   const emailPrefix = cleanStaffEmail.includes('@') ? cleanStaffEmail.split('@')[0] : cleanStaffEmail;
+  const picOrOwner = (project?.pic || project?.owner || '').trim().toLowerCase();
+  const assignedMembers = Array.isArray(project?.assignedMembers) ? project.assignedMembers : [];
 
-  const matchesUser = (mId: string, mName: string, mEmail: string) => {
+  console.group(`[VerifyProjectAssignment] Diagnosing membership for "${projLabel}" (${project?.id || 'no-id'})`);
+  console.log('User Identity Input:', {
+    staffId,
+    staffName,
+    staffEmail,
+    globalRole,
+    cleanStaffId,
+    cleanStaffName,
+    cleanStaffEmail,
+    emailPrefix
+  });
+  console.log('Project Metadata Input:', {
+    id: project?.id,
+    name: project?.name,
+    pic: project?.pic,
+    owner: project?.owner,
+    picOrOwner,
+    assignedMembersCount: assignedMembers.length
+  });
+
+  const memberChecks: ProjectAssignmentVerificationResult['details']['memberChecks'] = [];
+
+  // Check 1: Super Admin / Donor Viewer Override
+  if (globalRole === 'super_admin') {
+    console.log(`✅ [VerifyProjectAssignment] ALLOWED: User is super_admin. Global override active.`);
+    console.groupEnd();
+    return {
+      isAssigned: true,
+      reason: 'super_admin_override',
+      details: {
+        projectId: project?.id,
+        projectName: project?.name,
+        user: { staffId, staffName, staffEmail, globalRole, cleanStaffId, cleanStaffName, cleanStaffEmail, emailPrefix },
+        picOrOwner,
+        assignedMembersCount: assignedMembers.length,
+        memberChecks
+      }
+    };
+  }
+
+  if (globalRole === 'donor_viewer') {
+    console.log(`✅ [VerifyProjectAssignment] ALLOWED: User is donor_viewer. Read-only global override active.`);
+    console.groupEnd();
+    return {
+      isAssigned: true,
+      reason: 'donor_viewer_override',
+      details: {
+        projectId: project?.id,
+        projectName: project?.name,
+        user: { staffId, staffName, staffEmail, globalRole, cleanStaffId, cleanStaffName, cleanStaffEmail, emailPrefix },
+        picOrOwner,
+        assignedMembersCount: assignedMembers.length,
+        memberChecks
+      }
+    };
+  }
+
+  // Check 2: Missing User Identity
+  if (!staffId && !staffName && !staffEmail) {
+    console.warn(`❌ [VerifyProjectAssignment] DENIED: All staff identification parameters (id, name, email) are empty.`);
+    console.groupEnd();
+    return {
+      isAssigned: false,
+      reason: 'missing_user_identity',
+      details: {
+        projectId: project?.id,
+        projectName: project?.name,
+        user: { staffId, staffName, staffEmail, globalRole, cleanStaffId, cleanStaffName, cleanStaffEmail, emailPrefix },
+        picOrOwner,
+        assignedMembersCount: assignedMembers.length,
+        memberChecks
+      }
+    };
+  }
+
+  // Helper matching function
+  const evaluateMemberMatch = (mId: string, mName: string, mEmail: string) => {
     const cleanMId = (mId || '').trim().toLowerCase();
     const cleanMName = (mName || '').trim().toLowerCase();
     const cleanMEmail = (mEmail || '').trim().toLowerCase();
     const mEmailPrefix = cleanMEmail.includes('@') ? cleanMEmail.split('@')[0] : cleanMEmail;
 
-    // Direct exact matches
-    if (cleanStaffId && (cleanMId === cleanStaffId || cleanMName === cleanStaffId || cleanMEmail === cleanStaffId)) return true;
-    if (cleanStaffName && (cleanMId === cleanStaffName || cleanMName === cleanStaffName || cleanMEmail === cleanStaffName)) return true;
-    if (cleanStaffEmail && (cleanMId === cleanStaffEmail || cleanMName === cleanStaffEmail || cleanMEmail === cleanStaffEmail)) return true;
-
-    // Substring / partial name matches
-    if (cleanStaffName && cleanStaffName.length >= 3 && (cleanMName.includes(cleanStaffName) || cleanStaffName.includes(cleanMName))) return true;
-    if (cleanStaffEmail && cleanStaffEmail.length >= 3 && (cleanMEmail.includes(cleanStaffEmail) || cleanStaffEmail.includes(cleanMEmail))) return true;
-
-    // Email prefix matches (e.g. "nirmala" matches "nirmala@dfw.or.id" or staff ID "nirmala")
-    if (emailPrefix && emailPrefix.length >= 3) {
-      if (cleanMId.includes(emailPrefix) || cleanMName.includes(emailPrefix) || cleanMEmail.includes(emailPrefix)) return true;
-    }
-    if (mEmailPrefix && mEmailPrefix.length >= 3) {
-      if (cleanStaffId.includes(mEmailPrefix) || cleanStaffName.includes(mEmailPrefix) || cleanStaffEmail.includes(mEmailPrefix)) return true;
-    }
-
-    return false;
-  };
-
-  // Check if staffId, staffName, or staffEmail has an explicit role assigned in this project
-  if (project.assignedMembers && Array.isArray(project.assignedMembers)) {
-    const found = project.assignedMembers.find((m) =>
-      matchesUser(m.staffId, m.staffName || '', m.staffEmail || '')
+    const exactIdMatch = Boolean(
+      cleanStaffId && (cleanMId === cleanStaffId || cleanMName === cleanStaffId || cleanMEmail === cleanStaffId)
+    );
+    const exactNameMatch = Boolean(
+      cleanStaffName && (cleanMId === cleanStaffName || cleanMName === cleanStaffName || cleanMEmail === cleanStaffName)
+    );
+    const exactEmailMatch = Boolean(
+      cleanStaffEmail && (cleanMId === cleanStaffEmail || cleanMName === cleanStaffEmail || cleanMEmail === cleanStaffEmail)
+    );
+    const partialNameMatch = Boolean(
+      cleanStaffName && cleanStaffName.length >= 3 && (cleanMName.includes(cleanStaffName) || cleanStaffName.includes(cleanMName))
+    );
+    const partialEmailMatch = Boolean(
+      cleanStaffEmail && cleanStaffEmail.length >= 3 && (cleanMEmail.includes(cleanStaffEmail) || cleanStaffEmail.includes(cleanMEmail))
+    );
+    const emailPrefixMatch = Boolean(
+      (emailPrefix && emailPrefix.length >= 3 && (cleanMId.includes(emailPrefix) || cleanMName.includes(emailPrefix) || cleanMEmail.includes(emailPrefix))) ||
+      (mEmailPrefix && mEmailPrefix.length >= 3 && (cleanStaffId.includes(mEmailPrefix) || cleanStaffName.includes(mEmailPrefix) || cleanStaffEmail.includes(mEmailPrefix)))
     );
 
-    if (found) {
-      return found.projectRole;
+    const isMatch = exactIdMatch || exactNameMatch || exactEmailMatch || partialNameMatch || partialEmailMatch || emailPrefixMatch;
+
+    return {
+      matches: {
+        exactIdMatch,
+        exactNameMatch,
+        exactEmailMatch,
+        partialNameMatch,
+        partialEmailMatch,
+        emailPrefixMatch
+      },
+      isMatch
+    };
+  };
+
+  // Check 3: Check assignedMembers
+  let matchedMemberResult: { staffId: string; staffName?: string; staffEmail?: string; projectRole?: UserRoleType } | undefined;
+
+  if (assignedMembers.length > 0) {
+    console.log(`🔍 [VerifyProjectAssignment] Checking ${assignedMembers.length} assignedMember(s)...`);
+    for (let i = 0; i < assignedMembers.length; i++) {
+      const m = assignedMembers[i];
+      const evalRes = evaluateMemberMatch(m.staffId, m.staffName || '', m.staffEmail || '');
+      memberChecks.push({
+        index: i,
+        member: m,
+        matches: evalRes.matches,
+        isMatch: evalRes.isMatch
+      });
+
+      console.log(`Member #${i + 1} [${m.staffName || m.staffId}]:`, {
+        memberData: m,
+        matchEvaluation: evalRes.matches,
+        isMatch: evalRes.isMatch
+      });
+
+      if (evalRes.isMatch && !matchedMemberResult) {
+        matchedMemberResult = m;
+      }
+    }
+
+    if (matchedMemberResult) {
+      console.log(`✅ [VerifyProjectAssignment] ALLOWED: Matched assignedMember:`, matchedMemberResult);
+      console.groupEnd();
+      return {
+        isAssigned: true,
+        reason: 'assigned_member_match',
+        matchedMember: matchedMemberResult,
+        details: {
+          projectId: project?.id,
+          projectName: project?.name,
+          user: { staffId, staffName, staffEmail, globalRole, cleanStaffId, cleanStaffName, cleanStaffEmail, emailPrefix },
+          picOrOwner,
+          assignedMembersCount: assignedMembers.length,
+          memberChecks
+        }
+      };
     }
   }
 
-  // Fallback to global role if not explicitly assigned in members list
-  return globalRole;
+  // Check 4: Check PIC / Owner field
+  if (picOrOwner) {
+    const picEval = evaluateMemberMatch(picOrOwner, picOrOwner, picOrOwner);
+    console.log(`🔍 [VerifyProjectAssignment] Checking PIC/Owner ("${picOrOwner}"):`, picEval);
+    if (picEval.isMatch) {
+      console.log(`✅ [VerifyProjectAssignment] ALLOWED: Matched PIC/Owner field.`);
+      console.groupEnd();
+      return {
+        isAssigned: true,
+        reason: 'pic_owner_match',
+        details: {
+          projectId: project?.id,
+          projectName: project?.name,
+          user: { staffId, staffName, staffEmail, globalRole, cleanStaffId, cleanStaffName, cleanStaffEmail, emailPrefix },
+          picOrOwner,
+          assignedMembersCount: assignedMembers.length,
+          memberChecks
+        }
+      };
+    }
+  }
+
+  // Check 5: Fallback if no assignedMembers configured
+  if (assignedMembers.length === 0) {
+    console.log(`✅ [VerifyProjectAssignment] ALLOWED: No restrictive team members configured for this project (assignedMembers is empty). Access open by default.`);
+    console.groupEnd();
+    return {
+      isAssigned: true,
+      reason: 'open_fallback_no_assigned_members',
+      details: {
+        projectId: project?.id,
+        projectName: project?.name,
+        user: { staffId, staffName, staffEmail, globalRole, cleanStaffId, cleanStaffName, cleanStaffEmail, emailPrefix },
+        picOrOwner,
+        assignedMembersCount: assignedMembers.length,
+        memberChecks
+      }
+    };
+  }
+
+  // Final Denied
+  console.warn(`❌ [VerifyProjectAssignment] DENIED: User identity did not match any assignedMember, PIC/Owner, or Global Role override.`);
+  console.groupEnd();
+
+  return {
+    isAssigned: false,
+    reason: 'not_assigned',
+    details: {
+      projectId: project?.id,
+      projectName: project?.name,
+      user: { staffId, staffName, staffEmail, globalRole, cleanStaffId, cleanStaffName, cleanStaffEmail, emailPrefix },
+      picOrOwner,
+      assignedMembersCount: assignedMembers.length,
+      memberChecks
+    }
+  };
+}
+
+if (typeof window !== 'undefined') {
+  (window as any).verifyProjectAssignment = verifyProjectAssignment;
 }
 
 export function isUserAssignedToProject(
-  globalRole: UserRoleType,
-  project: {
+  _globalRole: UserRoleType,
+  _project: {
     id?: string;
     name?: string;
     assignedMembers?: { staffId: string; staffName?: string; staffEmail?: string; projectRole: UserRoleType }[];
     pic?: string;
     owner?: string;
   },
-  staffId?: string,
-  staffName?: string,
-  staffEmail?: string
+  _staffId?: string,
+  _staffName?: string,
+  _staffEmail?: string
 ): boolean {
-  const projLabel = project.name || project.id || 'Proyek Tanpa Nama';
-
-  // Super Admin and Donor/Viewer see ALL projects
-  if (globalRole === 'super_admin' || globalRole === 'donor_viewer') {
-    console.log(`[RBACCheck] ALLOWED (Global Role override: ${globalRole}) for project "${projLabel}"`);
-    return true;
-  }
-
-  if (!staffId && !staffName && !staffEmail) {
-    console.warn(`[RBACCheck] DENIED (No staff identification provided: staffId=${staffId}, name=${staffName}, email=${staffEmail}) for project "${projLabel}"`);
-    return false;
-  }
-
-  const cleanStaffId = staffId ? staffId.trim().toLowerCase() : '';
-  const cleanStaffName = staffName ? staffName.trim().toLowerCase() : '';
-  const cleanStaffEmail = staffEmail ? staffEmail.trim().toLowerCase() : '';
-  const emailPrefix = cleanStaffEmail.includes('@') ? cleanStaffEmail.split('@')[0] : cleanStaffEmail;
-
-  const matchesUser = (mId: string, mName: string, mEmail: string) => {
-    const cleanMId = (mId || '').trim().toLowerCase();
-    const cleanMName = (mName || '').trim().toLowerCase();
-    const cleanMEmail = (mEmail || '').trim().toLowerCase();
-    const mEmailPrefix = cleanMEmail.includes('@') ? cleanMEmail.split('@')[0] : cleanMEmail;
-
-    // Direct exact matches
-    if (cleanStaffId && (cleanMId === cleanStaffId || cleanMName === cleanStaffId || cleanMEmail === cleanStaffId)) return true;
-    if (cleanStaffName && (cleanMId === cleanStaffName || cleanMName === cleanStaffName || cleanMEmail === cleanStaffName)) return true;
-    if (cleanStaffEmail && (cleanMId === cleanStaffEmail || cleanMName === cleanStaffEmail || cleanMEmail === cleanStaffEmail)) return true;
-
-    // Substring / partial name matches
-    if (cleanStaffName && cleanStaffName.length >= 3 && (cleanMName.includes(cleanStaffName) || cleanStaffName.includes(cleanMName))) return true;
-    if (cleanStaffEmail && cleanStaffEmail.length >= 3 && (cleanMEmail.includes(cleanStaffEmail) || cleanStaffEmail.includes(cleanMEmail))) return true;
-
-    // Email prefix matches (e.g. "nirmala" matches "nirmala@dfw.or.id")
-    if (emailPrefix && emailPrefix.length >= 3) {
-      if (cleanMId.includes(emailPrefix) || cleanMName.includes(emailPrefix) || cleanMEmail.includes(emailPrefix)) return true;
-    }
-    if (mEmailPrefix && mEmailPrefix.length >= 3) {
-      if (cleanStaffId.includes(mEmailPrefix) || cleanStaffName.includes(mEmailPrefix) || cleanStaffEmail.includes(mEmailPrefix)) return true;
-    }
-
-    return false;
-  };
-
-  // 1. Check assignedMembers list
-  if (project.assignedMembers && Array.isArray(project.assignedMembers) && project.assignedMembers.length > 0) {
-    const matchedMember = project.assignedMembers.find((m) =>
-      matchesUser(m.staffId, m.staffName || '', m.staffEmail || '')
-    );
-
-    if (matchedMember) {
-      console.log(`[RBACCheck] ALLOWED (Found in assignedMembers: role=${matchedMember.projectRole}, staffId=${matchedMember.staffId}, name=${matchedMember.staffName}) for project "${projLabel}"`, {
-        user: { staffId, staffName, staffEmail, globalRole },
-        matchedMember
-      });
-      return true;
-    }
-  }
-
-  // 2. Check project owner or PIC field
-  const picOrOwner = (project.pic || project.owner || '').trim().toLowerCase();
-  if (picOrOwner) {
-    if (matchesUser(picOrOwner, picOrOwner, picOrOwner)) {
-      console.log(`[RBACCheck] ALLOWED (Matched PIC/Owner field: "${picOrOwner}") for project "${projLabel}"`, {
-        user: { staffId, staffName, staffEmail, globalRole }
-      });
-      return true;
-    }
-  }
-
-  // 3. Fallback: If no specific assignedMembers are configured for this project, 
-  // allow access according to global role permissions.
-  if (!project.assignedMembers || project.assignedMembers.length === 0) {
-    console.log(`[RBACCheck] ALLOWED (No restrictive team assigned to project - fallback open) for project "${projLabel}"`);
-    return true;
-  }
-
-  console.warn(`[RBACCheck] DENIED (User not in assignedMembers [count: ${project.assignedMembers.length}] nor PIC/Owner "${picOrOwner}") for project "${projLabel}"`, {
-    user: { cleanStaffId, cleanStaffName, cleanStaffEmail, globalRole },
-    projectAssignedMembers: project.assignedMembers,
-    picOrOwner
-  });
-
-  return false;
+  // All projects are visible to all users. Edit rights are controlled by global user role (isAuthorizedAdmin: super_admin vs donor_viewer)
+  return true;
 }

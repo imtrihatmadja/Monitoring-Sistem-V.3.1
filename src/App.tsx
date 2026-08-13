@@ -29,7 +29,7 @@ import { ProjectDetailTab } from './components/ProjectDetailTab';
 import { DocumentsTab } from './components/DocumentsTab';
 import { RoleSelectorModal } from './components/RoleSelectorModal';
 import { GoogleAuthModal } from './components/GoogleAuthModal';
-import { UserRoleType, getRolePermissions, getProjectEffectiveRole, isUserAssignedToProject } from './lib/rbac';
+import { UserRoleType, getRolePermissions, getProjectEffectiveRole, isUserAssignedToProject, isAuthorizedAdmin } from './lib/rbac';
 
 // Import Confirm Modal
 import { ConfirmModal } from './components/ConfirmModal';
@@ -220,13 +220,11 @@ export default function App() {
     if (activeRoleOverride) {
       return activeRoleOverride;
     }
-    if (activeStaffId) {
-      const found = staff.find((s) => s.id === activeStaffId);
-      if (found?.systemRole) return found.systemRole;
+    if (isAuthorizedAdmin(activeStaff.email, activeStaff.name, activeStaff.id)) {
       return 'super_admin';
     }
     return 'donor_viewer';
-  }, [activeRoleOverride, activeStaffId, staff]);
+  }, [activeRoleOverride, activeStaff]);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isGoogleAuthModalOpen, setIsGoogleAuthModalOpen] = useState(false);
@@ -3007,24 +3005,6 @@ export default function App() {
             <span>Arsip Proyek Selesai</span>
           </button>
 
-          {currentPermissions.canManageUsers && (
-            <button
-              onClick={() => {
-                setActiveTab('role_settings');
-                setSelectedProjectId('');
-              }}
-              className={`w-full py-2.5 px-3 rounded-lg flex items-center gap-3 cursor-pointer text-left transition-all ${
-                activeTab === 'role_settings'
-                  ? 'bg-purple-600 text-white font-bold'
-                  : 'hover:bg-slate-800 hover:text-slate-100 text-slate-400'
-              }`}
-            >
-              <ShieldCheck className="w-4 h-4 shrink-0 text-purple-400" />
-              <span className="flex-1">Pengaturan User Role</span>
-              <span className="text-[9px] font-black bg-purple-900/90 text-purple-200 px-1.5 py-0.5 rounded border border-purple-700/80">ADMIN</span>
-            </button>
-          )}
-
           <button
             onClick={() => {
               setActiveTab('supabase');
@@ -3392,16 +3372,6 @@ export default function App() {
                 setSelectedStaffTasksName(staffName);
                 setIsStaffTasksModalOpen(true);
               }}
-            />
-          )}
-
-          {activeTab === 'role_settings' && (
-            <UserRoleManagementTab
-              staffList={staff}
-              projects={projects}
-              currentRole={currentRole}
-              onUpdateStaffList={updateStaffInStorage}
-              onUpdateProjects={updateProjectsInStorage}
             />
           )}
 

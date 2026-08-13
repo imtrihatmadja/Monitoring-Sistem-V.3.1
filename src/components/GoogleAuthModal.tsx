@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Staff, UserRoleType } from '../types';
-import { USER_ROLES } from '../lib/rbac';
-import { LogIn, ShieldAlert, CheckCircle2, X, User, Lock, Mail } from 'lucide-react';
+import { AUTHORIZED_ADMIN_EMAILS } from '../lib/rbac';
+import { LogIn, ShieldAlert, CheckCircle2, X, User, Lock, Mail, Key } from 'lucide-react';
 
 interface GoogleAuthModalProps {
   isOpen: boolean;
@@ -18,7 +18,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
   onClose,
   onGoogleLoginSuccess,
 }) => {
-  const [selectedEmail, setSelectedEmail] = useState<string>(activeStaff.email || '');
+  const [selectedEmail, setSelectedEmail] = useState<string>(activeStaff.email || 'imam.trihatmadja@dfw.or.id');
   const [customEmail, setCustomEmail] = useState<string>('');
   const [useCustom, setUseCustom] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string>('');
@@ -39,34 +39,37 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
         return;
       }
 
-      // Find staff by registered email
+      // Find staff by registered email or create dynamic staff session
       const foundStaff = staffList.find(
         (s) => s.email && s.email.trim().toLowerCase() === cleanEmail
       );
 
-      if (!foundStaff) {
-        setAuthError(
-          `Email Google "${cleanEmail}" belum terdaftar dalam sistem oleh Super Admin. Akses ditolak. Minta Super Admin untuk mendaftarkan email Anda di Tab Staff.`
-        );
-        return;
+      const isFullAdmin = AUTHORIZED_ADMIN_EMAILS.includes(cleanEmail);
+
+      let targetStaff: Staff;
+      if (foundStaff) {
+        targetStaff = {
+          ...foundStaff,
+          systemRole: isFullAdmin ? 'super_admin' : 'donor_viewer',
+          lastLoginAt: new Date().toISOString(),
+          googleAvatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`,
+        };
+      } else {
+        // Logged in user with other email -> View Only
+        targetStaff = {
+          id: `usr-${Date.now()}`,
+          name: cleanEmail.split('@')[0],
+          role: isFullAdmin ? 'Program Director / Admin' : 'Pengguna Eksternal (Viewer)',
+          systemRole: isFullAdmin ? 'super_admin' : 'donor_viewer',
+          status: 'active',
+          email: cleanEmail,
+          lastLoginAt: new Date().toISOString(),
+          googleAvatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`,
+        };
       }
 
-      if (foundStaff.status === 'inactive') {
-        setAuthError(
-          `Akun staf "${foundStaff.name}" (${cleanEmail}) saat ini berstatus NONAKTIF. Hubungi Administrator DFW.`
-        );
-        return;
-      }
-
-      // Success
-      const updatedStaff: Staff = {
-        ...foundStaff,
-        lastLoginAt: new Date().toISOString(),
-        googleAvatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`,
-      };
-
-      onGoogleLoginSuccess(updatedStaff);
-    }, 700);
+      onGoogleLoginSuccess(targetStaff);
+    }, 600);
   };
 
   return (
@@ -104,19 +107,19 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-extrabold text-white">Google Identity Sign-In</h2>
-              <p className="text-xs text-slate-400">Verifikasi email &amp; sinkronisasi role terdaftar</p>
+              <p className="text-xs text-slate-400">Verifikasi email &amp; hak akses terpusat DFW</p>
             </div>
           </div>
         </div>
 
         {/* Form Body */}
         <div className="p-6 space-y-4">
-          <div className="bg-blue-50/80 border border-blue-200/80 rounded-2xl p-3 text-xs text-blue-900 space-y-1">
+          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-3 text-xs text-purple-900 space-y-1">
             <p className="font-extrabold flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-blue-600" /> Alur Autentikasi Terintegrasi Email:
+              <Key className="w-3.5 h-3.5 text-purple-600" /> Aturan Login System DFW:
             </p>
-            <p className="text-[11px] text-blue-800 leading-relaxed">
-              Super Admin memverifikasi email pengguna di sistem DFW. Saat staf melakukan login Google dengan email tersebut, wewenang role &amp; hak akses proyek langsung diterapkan secara otomatis.
+            <p className="text-[11px] text-purple-800 leading-relaxed">
+              Login dengan <strong>admin@dfw.or.id</strong> atau <strong>imam.trihatmadja@dfw.or.id</strong> memberikan wewenang Full Access (Edit/Manage). Email lainnya beroperasi dalam mode View Only.
             </p>
           </div>
 
@@ -124,7 +127,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
             <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 text-xs text-rose-800 flex items-start gap-2.5 animate-in shake duration-150">
               <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <p className="font-extrabold text-rose-900">Akses Ditolak / Tidak Cocok</p>
+                <p className="font-extrabold text-rose-900">Perhatian Autentikasi</p>
                 <p className="text-[11px] leading-relaxed text-rose-700">{authError}</p>
               </div>
             </div>
@@ -133,12 +136,12 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
           {/* Quick Select Registered Google Emails */}
           <div className="space-y-2">
             <label className="text-xs font-extrabold text-slate-700 block">
-              Pilih Email Google Terdaftar (Demo &amp; Simulasi Login):
+              Pilih Akun Email Google:
             </label>
             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
               {staffList.map((st) => {
                 const isSelected = !useCustom && selectedEmail === st.email;
-                const rCfg = USER_ROLES[st.systemRole || 'field_officer'] || USER_ROLES.field_officer;
+                const isFullAdmin = AUTHORIZED_ADMIN_EMAILS.includes((st.email || '').toLowerCase());
 
                 return (
                   <div
@@ -150,7 +153,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                     }}
                     className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
                       isSelected
-                        ? 'bg-blue-50/90 border-blue-500 shadow-xs ring-1 ring-blue-500'
+                        ? 'bg-purple-50/90 border-purple-500 shadow-xs ring-1 ring-purple-500'
                         : 'bg-white border-slate-200 hover:bg-slate-50'
                     }`}
                   >
@@ -163,8 +166,12 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                         <p className="text-[10px] text-slate-500 font-mono truncate">{st.email}</p>
                       </div>
                     </div>
-                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md border shrink-0 ${rCfg.badgeBg} ${rCfg.badgeText} ${rCfg.badgeBorder}`}>
-                      {rCfg.title.split('/')[0].trim()}
+                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md border shrink-0 ${
+                      isFullAdmin 
+                        ? 'bg-purple-100 text-purple-800 border-purple-300' 
+                        : 'bg-amber-100 text-amber-800 border-amber-300'
+                    }`}>
+                      {isFullAdmin ? 'FULL ACCESS' : 'VIEW ONLY'}
                     </span>
                   </div>
                 );
@@ -180,10 +187,10 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                 setUseCustom(!useCustom);
                 setAuthError('');
               }}
-              className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1 cursor-pointer"
+              className="text-xs font-bold text-purple-600 hover:underline flex items-center gap-1 cursor-pointer"
             >
               <Mail className="w-3.5 h-3.5" />
-              {useCustom ? '← Gunakan daftar email terdaftar di atas' : '+ Tes dengan Email Google Lain'}
+              {useCustom ? '← Gunakan pilihan email di atas' : '+ Masukkan Email Google Lain'}
             </button>
 
             {useCustom && (
@@ -192,8 +199,8 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                   type="email"
                   value={customEmail}
                   onChange={(e) => setCustomEmail(e.target.value)}
-                  placeholder="Masukkan email Google (mis. nama@dfw.or.id)"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-500"
+                  placeholder="misal: admin@dfw.or.id"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:border-purple-500"
                 />
               </div>
             )}

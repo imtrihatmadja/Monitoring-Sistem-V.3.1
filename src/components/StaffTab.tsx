@@ -483,7 +483,6 @@ export const StaffTab: React.FC<StaffTabProps> = ({
             <thead>
               <tr className="bg-slate-50/70 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 <th className="py-3 px-4">Nama Personel</th>
-                <th className="py-3 px-4">Peran Akses Sistem (RBAC)</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-center">Total Penugasan</th>
                 <th className="py-3 px-4 text-center text-emerald-600">Selesai</th>
@@ -526,30 +525,6 @@ export const StaffTab: React.FC<StaffTabProps> = ({
                           )}
                         </div>
                       </div>
-                    </td>
-
-                    {/* RBAC System Role Column */}
-                    <td className="py-3.5 px-4">
-                      {permissions.canManageUsers ? (
-                        <div className="flex items-center gap-1.5">
-                          <select
-                            value={sysRoleKey}
-                            onChange={(e) => handleQuickRoleChange(sw.id, e.target.value as UserRoleType)}
-                            className={`py-1 px-2 rounded-lg text-[10px] font-extrabold border cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 ${roleCfg.badgeBg} ${roleCfg.badgeText} ${roleCfg.badgeBorder}`}
-                            title="Ubah wewenang sistem RBAC"
-                          >
-                            <option value="super_admin">👑 1. Super Admin</option>
-                            <option value="project_coordinator">📊 2. Project Coordinator</option>
-                            <option value="field_officer">📑 3. Field Officer (PIC Lapangan)</option>
-                            <option value="donor_viewer">👁️ 4. Donor / Public Viewer</option>
-                          </select>
-                        </div>
-                      ) : (
-                        <span className={`py-1 px-2 rounded-lg border text-[10px] font-extrabold inline-flex items-center gap-1 ${roleCfg.badgeBg} ${roleCfg.badgeText} ${roleCfg.badgeBorder}`}>
-                          <span>{roleCfg.badgeIcon}</span>
-                          <span>{roleCfg.title}</span>
-                        </span>
-                      )}
                     </td>
 
                     <td className="py-3.5 px-4">
@@ -660,20 +635,6 @@ export const StaffTab: React.FC<StaffTabProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Peran Akses Sistem (RBAC) *</label>
-                <select
-                  value={newStaffSystemRole}
-                  onChange={(e) => setNewStaffSystemRole(e.target.value as UserRoleType)}
-                  className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800 cursor-pointer"
-                >
-                  <option value="super_admin">👑 1. Super Admin (Full Kontrol & Manajemen Proyek)</option>
-                  <option value="project_coordinator">📊 2. Project Coordinator (Kelola Target & Progress)</option>
-                  <option value="field_officer">📑 3. Field Officer (PIC Lapangan / Input Laporan)</option>
-                  <option value="donor_viewer">👁️ 4. Donor / Public Viewer (Read-Only Portal)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Status Keanggotaan</label>
                 <select
                   value={newStaffStatus}
@@ -718,7 +679,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
           <div className="bg-white rounded-2xl border border-slate-100 max-w-md w-full shadow-2xl flex flex-col justify-between overflow-hidden text-slate-600 font-medium">
             <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-900 text-white">
               <span className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-1.5">
-                <Edit3 className="w-4 h-4 text-blue-400" /> Edit Data Staff &amp; Hak Akses
+                <Edit3 className="w-4 h-4 text-blue-400" /> Edit Data Staff
               </span>
               <button 
                 onClick={() => setEditingStaff(null)} 
@@ -759,20 +720,6 @@ export const StaffTab: React.FC<StaffTabProps> = ({
                     className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800"
                   />
                 </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Peran Akses Sistem (RBAC) *</label>
-                <select
-                  value={newStaffSystemRole}
-                  onChange={(e) => setNewStaffSystemRole(e.target.value as UserRoleType)}
-                  className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-xl py-2 px-3 focus:outline-none focus:border-blue-500 text-slate-800 cursor-pointer"
-                >
-                  <option value="super_admin">👑 1. Super Admin (Full Kontrol & Manajemen Proyek)</option>
-                  <option value="project_coordinator">📊 2. Project Coordinator (Kelola Target & Progress)</option>
-                  <option value="field_officer">📑 3. Field Officer (PIC Lapangan / Input Laporan)</option>
-                  <option value="donor_viewer">👁️ 4. Donor / Public Viewer (Read-Only Portal)</option>
-                </select>
               </div>
 
               <div className="space-y-1">
