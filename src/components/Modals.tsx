@@ -13,6 +13,7 @@ interface ActivityModalProps {
   activity?: Activity;
   projectId: string;
   staffList: string[];
+  isReadOnly?: boolean;
   onClose: () => void;
   onSave: (activityData: Partial<Activity>, rawFiles?: File[]) => void;
   onOpenSubActivities: (activityId: string) => void;
@@ -23,6 +24,7 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
   activity,
   projectId,
   staffList,
+  isReadOnly = false,
   onClose,
   onSave,
   onOpenSubActivities,
@@ -249,86 +251,92 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
                         ✍️ Oleh {n.author} | 📅 {n.date}
                       </span>
                     </div>
-                    <button
-                      onClick={() => setNotes(notes.filter((item) => item.id !== n.id))}
-                      className="text-slate-300 hover:text-rose-500 p-0.5 cursor-pointer"
-                      title="Hapus catatan"
-                    >
-                      ✕
-                    </button>
+                    {!isReadOnly && (
+                      <button
+                        onClick={() => setNotes(notes.filter((item) => item.id !== n.id))}
+                        className="text-slate-300 hover:text-rose-500 p-0.5 cursor-pointer"
+                        title="Hapus catatan"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 ))
               )}
             </div>
 
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Tulis catatan perkembangan, kendala, atau tindakan penyelesaian terbaru..."
-                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg py-1 px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:bg-white"
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddNote();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={handleAddNote}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-1 px-4 rounded-lg cursor-pointer text-[10px]"
-              >
-                Simpan Catatan
-              </button>
-            </div>
+            {!isReadOnly && (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Tulis catatan perkembangan, kendala, atau tindakan penyelesaian terbaru..."
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-lg py-1 px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:bg-white"
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddNote();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddNote}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-1 px-4 rounded-lg cursor-pointer text-[10px]"
+                >
+                  Simpan Catatan
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Files dropzone support */}
-          <div className="space-y-3 pt-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 block">
-              📂 Berkas Lampiran Pendukung
-            </span>
+          {!isReadOnly && (
+            <div className="space-y-3 pt-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 block">
+                📂 Berkas Lampiran Pendukung
+              </span>
 
-            {/* Dropzone container */}
-            <label className="border-2 border-dashed border-slate-200 p-6 rounded-xl hover:border-blue-400 hover:bg-blue-50/5 transition-all text-center flex flex-col items-center justify-center cursor-pointer gap-1 text-slate-400">
-              <Upload className="w-6 h-6 text-slate-300" />
-              <p className="font-bold text-slate-600 text-xs mt-1">Pilih Lampiran Berkas Baru</p>
-              <span className="text-[10px] text-slate-400">Dimungkinkan PDF, XLSX, JPG (Maks. 10MB)</span>
-              <input type="file" multiple className="hidden" onChange={handleFileChange} />
-            </label>
+              {/* Dropzone container */}
+              <label className="border-2 border-dashed border-slate-200 p-6 rounded-xl hover:border-blue-400 hover:bg-blue-50/5 transition-all text-center flex flex-col items-center justify-center cursor-pointer gap-1 text-slate-400">
+                <Upload className="w-6 h-6 text-slate-300" />
+                <p className="font-bold text-slate-600 text-xs mt-1">Pilih Lampiran Berkas Baru</p>
+                <span className="text-[10px] text-slate-400">Dimungkinkan PDF, XLSX, JPG (Maks. 10MB)</span>
+                <input type="file" multiple className="hidden" onChange={handleFileChange} />
+              </label>
 
-            {/* Staging file indicator list */}
-            {stagedFiles.length > 0 && (
-              <div className="space-y-1 bg-blue-50/30 p-2 border border-blue-100/30 rounded-lg">
-                <span className="text-[9px] font-bold text-blue-800">Berkas akan Diupload:</span>
-                {stagedFiles.map((f, index) => (
-                  <div key={index} className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                    <span className="truncate max-w-[400px]">📎 {f.name}</span>
-                    <button onClick={() => handleRemoveStaged(index)} className="text-rose-500 font-bold hover:underline cursor-pointer">
-                      Hapus
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+              {/* Staging file indicator list */}
+              {stagedFiles.length > 0 && (
+                <div className="space-y-1 bg-blue-50/30 p-2 border border-blue-100/30 rounded-lg">
+                  <span className="text-[9px] font-bold text-blue-800">Berkas akan Diupload:</span>
+                  {stagedFiles.map((f, index) => (
+                    <div key={index} className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                      <span className="truncate max-w-[400px]">📎 {f.name}</span>
+                      <button onClick={() => handleRemoveStaged(index)} className="text-rose-500 font-bold hover:underline cursor-pointer">
+                        Hapus
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-            {/* Existing files */}
-            {savedFiles.length > 0 && (
-              <div className="space-y-1 border border-slate-50 p-2.5 rounded-lg bg-slate-50/30">
-                <span className="text-[9px] font-bold text-slate-400">Berkas yang Tersimpan:</span>
-                {savedFiles.map((f) => (
-                  <div key={f.id} className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                    <span className="truncate max-w-[400px]">📄 {f.name}</span>
-                    <button onClick={() => handleRemoveSaved(f.id)} className="text-rose-500 hover:underline cursor-pointer text-[10px] font-bold">
-                      Hapus
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+              {/* Existing files */}
+              {savedFiles.length > 0 && (
+                <div className="space-y-1 border border-slate-50 p-2.5 rounded-lg bg-slate-50/30">
+                  <span className="text-[9px] font-bold text-slate-400">Berkas yang Tersimpan:</span>
+                  {savedFiles.map((f) => (
+                    <div key={f.id} className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                      <span className="truncate max-w-[400px]">📄 {f.name}</span>
+                      <button onClick={() => handleRemoveSaved(f.id)} className="text-rose-500 hover:underline cursor-pointer text-[10px] font-bold">
+                        Hapus
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Form actions */}
@@ -346,14 +354,16 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
               onClick={onClose}
               className="bg-white border border-slate-200 text-slate-500 py-1.5 px-4 rounded-xl font-bold transition-all hover:bg-slate-100 cursor-pointer"
             >
-              Batal
+              {isReadOnly ? 'Tutup' : 'Batal'}
             </button>
-            <button
-              onClick={handleSaveActivityLocal}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-1.5 px-5 rounded-xl transition-all cursor-pointer inline-flex items-center gap-1"
-            >
-              <Check className="w-4 h-4" /> Simpan Aktivitas
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={handleSaveActivityLocal}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-1.5 px-5 rounded-xl transition-all cursor-pointer inline-flex items-center gap-1"
+              >
+                <Check className="w-4 h-4" /> Simpan Aktivitas
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1834,6 +1844,7 @@ interface SubActivitiesModalProps {
   parentActivityId: string;
   subActivities: SubActivity[];
   staffList: string[];
+  isReadOnly?: boolean;
   onClose: () => void;
   onSaveSubActivity: (subAct: Partial<SubActivity>) => void;
   onDeleteSubActivity: (subId: string) => void;
@@ -1844,6 +1855,7 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
   parentActivityId,
   subActivities,
   staffList,
+  isReadOnly = false,
   onClose,
   onSaveSubActivity,
   onDeleteSubActivity,
@@ -1997,43 +2009,45 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
                         <span className={`py-0.2 px-2.5 rounded-full border text-[9px] font-bold ${statusBg}`}>
                           {statusText}
                         </span>
-                        <div className="flex gap-1.5 items-center mt-1">
-                          <button
-                            onClick={() => {
-                              setEditingSubId(item.id);
-                              setSubTitle(item.title);
-                              setSubDesc(item.desc || '');
-                              setSubPic(item.pic || '');
-                              setSubStatus(item.status);
-                              setSubPriority(item.priority || 'Normal');
-                              setSubDue(item.due || '');
-                              setSubNotes(item.notes || []);
-                            }}
-                            className={`p-1 transition-colors rounded-md ${editingSubId === item.id ? 'text-blue-600 bg-blue-50' : 'text-slate-300 hover:text-blue-600 hover:bg-slate-100'}`}
-                            title="Ubah Sub-Aktivitas"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (editingSubId === item.id) {
-                                setEditingSubId(null);
-                                setSubTitle('');
-                                setSubDesc('');
-                                setSubPic('');
-                                setSubStatus('Belum Mulai');
-                                setSubPriority('Normal');
-                                setSubDue('');
-                                setSubNotes([]);
-                              }
-                              onDeleteSubActivity(item.id);
-                            }}
-                            className="text-slate-300 hover:text-rose-600 p-1 transition-colors rounded-md hover:bg-slate-100"
-                            title="Hapus Sub-Aktivitas"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        {!isReadOnly && (
+                          <div className="flex gap-1.5 items-center mt-1">
+                            <button
+                              onClick={() => {
+                                setEditingSubId(item.id);
+                                setSubTitle(item.title);
+                                setSubDesc(item.desc || '');
+                                setSubPic(item.pic || '');
+                                setSubStatus(item.status);
+                                setSubPriority(item.priority || 'Normal');
+                                setSubDue(item.due || '');
+                                setSubNotes(item.notes || []);
+                              }}
+                              className={`p-1 transition-colors rounded-md ${editingSubId === item.id ? 'text-blue-600 bg-blue-50' : 'text-slate-300 hover:text-blue-600 hover:bg-slate-100'}`}
+                              title="Ubah Sub-Aktivitas"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (editingSubId === item.id) {
+                                  setEditingSubId(null);
+                                  setSubTitle('');
+                                  setSubDesc('');
+                                  setSubPic('');
+                                  setSubStatus('Belum Mulai');
+                                  setSubPriority('Normal');
+                                  setSubDue('');
+                                  setSubNotes([]);
+                                }
+                                onDeleteSubActivity(item.id);
+                              }}
+                              className="text-slate-300 hover:text-rose-600 p-1 transition-colors rounded-md hover:bg-slate-100"
+                              title="Hapus Sub-Aktivitas"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -2043,183 +2057,185 @@ export const SubActivitiesModal: React.FC<SubActivitiesModalProps> = ({
           </div>
 
           {/* Create form */}
-          <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200/50 space-y-4">
-            <span className="text-[10px] font-extrabold text-slate-800 uppercase tracking-widest block">
-              {editingSubId ? '✏️ Ubah Sub-Aktivitas' : '＋ Tambahkan Sub-Aktivitas Baru'}
-            </span>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 space-y-1">
-                <label className="text-slate-500 font-bold">Judul Sub-Aktivitas *</label>
-                <input
-                  type="text"
-                  placeholder="Koleksi foto berkas kapal di syahbandar"
-                  className="w-full bg-white border border-slate-200 py-1.5 px-3 rounded-lg focus:outline-none focus:border-blue-450"
-                  value={subTitle}
-                  onChange={(e) => setSubTitle(e.target.value)}
-                />
-              </div>
-
-              <div className="col-span-2 space-y-1">
-                <label className="text-slate-500 font-bold">Deskripsi Ringkas</label>
-                <textarea
-                  placeholder="Instruksi pengerjaan..."
-                  rows={2}
-                  className="w-full bg-white border border-slate-200 py-1 px-3 rounded-lg focus:outline-none focus:border-blue-450 text-xs"
-                  value={subDesc}
-                  onChange={(e) => setSubDesc(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-500 font-bold">Pilih PIC Lapangan</label>
-                <select
-                  className="w-full bg-white border border-slate-200 py-1.5 px-3 rounded-lg focus:outline-none cursor-pointer"
-                  value={subPic}
-                  onChange={(e) => setSubPic(e.target.value)}
-                >
-                  <option value="">-- Pilih PIC --</option>
-                  {staffList.map((st) => (
-                    <option key={st} value={st}>
-                      {st}
-                    </option>
-                  ))}
-                  {subPic && !staffList.includes(subPic) && (
-                    <option value={subPic}>
-                      {subPic}
-                    </option>
-                  )}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-500 font-bold">Kategori Prioritas</label>
-                <select
-                  className="w-full bg-white border border-slate-200 py-1.5 px-3 rounded-lg focus:outline-none cursor-pointer"
-                  value={subPriority}
-                  onChange={(e) => setSubPriority(e.target.value as any)}
-                >
-                  <option value="Low">Low</option>
-                  <option value="Normal">Normal</option>
-                  <option value="High">High</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-500 font-bold">Status Kerja</label>
-                <select
-                  className="w-full bg-white border border-slate-200 py-1.5 px-3 rounded-lg focus:outline-none cursor-pointer"
-                  value={subStatus}
-                  onChange={(e) => setSubStatus(e.target.value as any)}
-                >
-                  <option value="Belum Mulai">Belum Mulai</option>
-                  <option value="Sedang Dikerjakan">Sedang Dikerjakan</option>
-                  <option value="Tertunda">Tertunda</option>
-                  <option value="Selesai">Selesai</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-500 font-bold">Jatuh Tempo</label>
-                <input
-                  type="date"
-                  className="w-full bg-white border border-slate-200 py-1 px-3 rounded-lg font-mono"
-                  value={subDue}
-                  onChange={(e) => setSubDue(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Notes for Sub-Activity */}
-            <div className="border-t border-slate-200/60 pt-3.5 space-y-3">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 block flex items-center gap-1.5">
-                📈 Histori Catatan Perkembangan Sub-Aktivitas
+          {!isReadOnly && (
+            <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200/50 space-y-4">
+              <span className="text-[10px] font-extrabold text-slate-800 uppercase tracking-widest block">
+                {editingSubId ? '✏️ Ubah Sub-Aktivitas' : '＋ Tambahkan Sub-Aktivitas Baru'}
               </span>
-              <div className="max-h-[110px] overflow-y-auto space-y-1.5 border border-slate-200/40 p-2 rounded-lg bg-white">
-                {subNotes.length === 0 ? (
-                  <p className="text-slate-400 italic text-[10px] text-center py-2 bg-slate-50/20 rounded-md">Belum ada histori catatan perkembangan pada sub-aktivitas ini.</p>
-                ) : (
-                  [...subNotes].reverse().map((n) => (
-                    <div key={n.id} className="p-1.5 border border-slate-100 bg-slate-50/50 rounded-lg flex items-start justify-between gap-3 text-[10.5px]">
-                      <div className="space-y-0.5 flex-1">
-                        <p className="font-bold text-slate-800 leading-tight">"{n.text}"</p>
-                        <span className="text-[8.5px] text-slate-400 block font-mono">
-                          ✍️ Oleh {n.author} | 📅 {n.date}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSubNotes(subNotes.filter((item) => item.id !== n.id))}
-                        className="text-slate-300 hover:text-rose-500 p-0.5 cursor-pointer"
-                        title="Hapus"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Tulis catatan perkembangan terbaru..."
-                  className="flex-1 bg-white border border-slate-200 rounded-lg py-1 px-3 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-blue-450 focus:bg-white"
-                  value={newSubNote}
-                  onChange={(e) => setNewSubNote(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddSubNote();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddSubNote}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-1 px-3.5 rounded-lg cursor-pointer text-[10px] whitespace-nowrap"
-                >
-                  Tambah Catatan
-                </button>
-              </div>
-            </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              {editingSubId && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2 space-y-1">
+                  <label className="text-slate-500 font-bold">Judul Sub-Aktivitas *</label>
+                  <input
+                    type="text"
+                    placeholder="Koleksi foto berkas kapal di syahbandar"
+                    className="w-full bg-white border border-slate-200 py-1.5 px-3 rounded-lg focus:outline-none focus:border-blue-450"
+                    value={subTitle}
+                    onChange={(e) => setSubTitle(e.target.value)}
+                  />
+                </div>
+
+                <div className="col-span-2 space-y-1">
+                  <label className="text-slate-500 font-bold">Deskripsi Ringkas</label>
+                  <textarea
+                    placeholder="Instruksi pengerjaan..."
+                    rows={2}
+                    className="w-full bg-white border border-slate-200 py-1 px-3 rounded-lg focus:outline-none focus:border-blue-450 text-xs"
+                    value={subDesc}
+                    onChange={(e) => setSubDesc(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-500 font-bold">Pilih PIC Lapangan</label>
+                  <select
+                    className="w-full bg-white border border-slate-200 py-1.5 px-3 rounded-lg focus:outline-none cursor-pointer"
+                    value={subPic}
+                    onChange={(e) => setSubPic(e.target.value)}
+                  >
+                    <option value="">-- Pilih PIC --</option>
+                    {staffList.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                    {subPic && !staffList.includes(subPic) && (
+                      <option value={subPic}>
+                        {subPic}
+                      </option>
+                    )}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-500 font-bold">Kategori Prioritas</label>
+                  <select
+                    className="w-full bg-white border border-slate-200 py-1.5 px-3 rounded-lg focus:outline-none cursor-pointer"
+                    value={subPriority}
+                    onChange={(e) => setSubPriority(e.target.value as any)}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Normal">Normal</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-500 font-bold">Status Kerja</label>
+                  <select
+                    className="w-full bg-white border border-slate-200 py-1.5 px-3 rounded-lg focus:outline-none cursor-pointer"
+                    value={subStatus}
+                    onChange={(e) => setSubStatus(e.target.value as any)}
+                  >
+                    <option value="Belum Mulai">Belum Mulai</option>
+                    <option value="Sedang Dikerjakan">Sedang Dikerjakan</option>
+                    <option value="Tertunda">Tertunda</option>
+                    <option value="Selesai">Selesai</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-500 font-bold">Jatuh Tempo</label>
+                  <input
+                    type="date"
+                    className="w-full bg-white border border-slate-200 py-1 px-3 rounded-lg font-mono"
+                    value={subDue}
+                    onChange={(e) => setSubDue(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Notes for Sub-Activity */}
+              <div className="border-t border-slate-200/60 pt-3.5 space-y-3">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 block flex items-center gap-1.5">
+                  📈 Histori Catatan Perkembangan Sub-Aktivitas
+                </span>
+                <div className="max-h-[110px] overflow-y-auto space-y-1.5 border border-slate-200/40 p-2 rounded-lg bg-white">
+                  {subNotes.length === 0 ? (
+                    <p className="text-slate-400 italic text-[10px] text-center py-2 bg-slate-50/20 rounded-md">Belum ada histori catatan perkembangan pada sub-aktivitas ini.</p>
+                  ) : (
+                    [...subNotes].reverse().map((n) => (
+                      <div key={n.id} className="p-1.5 border border-slate-100 bg-slate-50/50 rounded-lg flex items-start justify-between gap-3 text-[10.5px]">
+                        <div className="space-y-0.5 flex-1">
+                          <p className="font-bold text-slate-800 leading-tight">"{n.text}"</p>
+                          <span className="text-[8.5px] text-slate-400 block font-mono">
+                            ✍️ Oleh {n.author} | 📅 {n.date}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSubNotes(subNotes.filter((item) => item.id !== n.id))}
+                          className="text-slate-300 hover:text-rose-500 p-0.5 cursor-pointer"
+                          title="Hapus"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Tulis catatan perkembangan terbaru..."
+                    className="flex-1 bg-white border border-slate-200 rounded-lg py-1 px-3 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-blue-450 focus:bg-white"
+                    value={newSubNote}
+                    onChange={(e) => setNewSubNote(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddSubNote();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddSubNote}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-1 px-3.5 rounded-lg cursor-pointer text-[10px] whitespace-nowrap"
+                  >
+                    Tambah Catatan
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                {editingSubId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingSubId(null);
+                      setSubTitle('');
+                      setSubDesc('');
+                      setSubPic('');
+                      setSubStatus('Belum Mulai');
+                      setSubPriority('Normal');
+                      setSubDue('');
+                      setSubNotes([]);
+                      setNewSubNote('');
+                    }}
+                    className="bg-slate-200 hover:bg-slate-300 text-slate-600 font-extrabold text-[10px] py-1.5 px-4 rounded-lg cursor-pointer transition-all"
+                  >
+                    Batal
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditingSubId(null);
-                    setSubTitle('');
-                    setSubDesc('');
-                    setSubPic('');
-                    setSubStatus('Belum Mulai');
-                    setSubPriority('Normal');
-                    setSubDue('');
-                    setSubNotes([]);
-                    setNewSubNote('');
-                  }}
-                  className="bg-slate-200 hover:bg-slate-300 text-slate-600 font-extrabold text-[10px] py-1.5 px-4 rounded-lg cursor-pointer transition-all"
+                  onClick={handleSave}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] py-1.5 px-4 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1 transition-all"
                 >
-                  Batal
+                  {editingSubId ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" /> Simpan Perubahan
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" /> Tambah Sub-Aktivitas
+                    </>
+                  )}
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={handleSave}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] py-1.5 px-4 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1 transition-all"
-              >
-                {editingSubId ? (
-                  <>
-                    <Check className="w-3.5 h-3.5" /> Simpan Perubahan
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-3.5 h-3.5" /> Tambah Sub-Aktivitas
-                  </>
-                )}
-              </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-end">

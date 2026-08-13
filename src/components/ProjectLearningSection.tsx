@@ -10,6 +10,7 @@ interface ProjectLearningSectionProps {
   projectId: string;
   reflections: ProjectReflection[];
   staffList: string[];
+  isReadOnly?: boolean;
   onAddReflection: (reflection: Partial<ProjectReflection>) => void;
   onDeleteReflection: (refId: string) => void;
 }
@@ -18,6 +19,7 @@ export const ProjectLearningSection: React.FC<ProjectLearningSectionProps> = ({
   projectId,
   reflections,
   staffList,
+  isReadOnly = false,
   onAddReflection,
   onDeleteReflection
 }) => {
@@ -172,17 +174,19 @@ export const ProjectLearningSection: React.FC<ProjectLearningSectionProps> = ({
             >
               <FileDown className="w-3.5 h-3.5 text-blue-600" /> Rapot Pembelajaran
             </button>
-            <button
-              onClick={() => setIsOpenForm(!isOpenForm)}
-              className={`px-3 py-1.5 border font-extrabold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
-                isOpenForm 
-                ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100' 
-                : 'bg-emerald-600 border-emerald-700 text-white hover:bg-emerald-700 shadow-xs'
-              }`}
-            >
-              <Plus className={`w-3.5 h-3.5 transition-transform ${isOpenForm ? 'rotate-45' : ''}`} />
-              {isOpenForm ? 'Tutup Formulir' : 'Tulis Refleksi'}
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={() => setIsOpenForm(!isOpenForm)}
+                className={`px-3 py-1.5 border font-extrabold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isOpenForm 
+                  ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100' 
+                  : 'bg-emerald-600 border-emerald-700 text-white hover:bg-emerald-700 shadow-xs'
+                }`}
+              >
+                <Plus className={`w-3.5 h-3.5 transition-transform ${isOpenForm ? 'rotate-45' : ''}`} />
+                {isOpenForm ? 'Tutup Formulir' : 'Tulis Refleksi'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -224,7 +228,7 @@ export const ProjectLearningSection: React.FC<ProjectLearningSectionProps> = ({
       </div>
 
       {/* COLLAPSIBLE ADD REFLECTION FORM */}
-      {isOpenForm && (
+      {!isReadOnly && isOpenForm && (
         <form onSubmit={handleCreateReflection} className="bg-slate-50 border border-slate-200/60 rounded-xl p-5 space-y-4 shadow-inner-sm">
           <span className="text-xs font-black text-slate-800 uppercase tracking-widest block">
             ✍️ Catat Hikmah Pembelajaran / Refleksi Baru
@@ -502,17 +506,19 @@ export const ProjectLearningSection: React.FC<ProjectLearningSectionProps> = ({
                     </span>
                     
                     {/* Delete handler */}
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Hapus catatan refleksi pembelajaran ini?`)) {
-                          onDeleteReflection(ref.id);
-                        }
-                      }}
-                      className="p-1 text-slate-350 hover:text-rose-600 rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-rose-50 transition-all cursor-pointer"
-                      title="Hapus Catatan"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {!isReadOnly && (
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Hapus catatan refleksi pembelajaran ini?`)) {
+                            onDeleteReflection(ref.id);
+                          }
+                        }}
+                        className="p-1 text-slate-350 hover:text-rose-600 rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-rose-50 transition-all cursor-pointer"
+                        title="Hapus Catatan"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
 

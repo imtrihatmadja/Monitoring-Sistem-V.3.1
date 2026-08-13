@@ -3204,15 +3204,17 @@ export default function App() {
             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 py-1 px-2.5 rounded-full border border-emerald-100 inline-flex items-center gap-1">
               <span>🟢</span> Realtime Database ON
             </span>
-            <button
-              onClick={() => {
-                setPrintDefaultType('standard');
-                setIsPrintModalOpen(true);
-              }}
-              className="p-1 px-3.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer h-8 shadow-xs"
-            >
-              <Printer className="w-3.5 h-3.5" /> PDF
-            </button>
+            {!currentPermissions.isReadOnly && (
+              <button
+                onClick={() => {
+                  setPrintDefaultType('standard');
+                  setIsPrintModalOpen(true);
+                }}
+                className="p-1 px-3.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer h-8 shadow-xs"
+              >
+                <Printer className="w-3.5 h-3.5" /> PDF
+              </button>
+            )}
           </div>
         </div>
 
@@ -4514,6 +4516,7 @@ ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_
         activity={selectedActivity}
         projectId={selectedProjectId}
         staffList={staffNamesList}
+        isReadOnly={getRolePermissions(currentRole).isReadOnly}
         onClose={() => {
           setIsActivityModalOpen(false);
           setSelectedActivity(undefined);
@@ -4530,6 +4533,7 @@ ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_
         parentActivityId={activeParentActivityId}
         subActivities={subActivities}
         staffList={staffNamesList}
+        isReadOnly={getRolePermissions(currentRole).isReadOnly}
         onClose={() => {
           setIsSubActivitiesModalOpen(false);
           setActiveParentActivityId('');

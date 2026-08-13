@@ -269,6 +269,7 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
                       key={ind.id}
                       index={index}
                       indicator={ind}
+                      canEdit={!permissions.isReadOnly && permissions.canManageIndicators}
                       onSave={(desc) => {
                         if (onSaveIndicatorPirs) {
                           onSaveIndicatorPirs(ind.id, desc);
@@ -327,34 +328,36 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto shrink-0">
-            <button
-              onClick={() => setShowPirs(true)}
-              className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-blue-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-            >
-              <FileText className="w-3.5 h-3.5" /> PIRS Indikator
-            </button>
-            <button
-              onClick={onPrintDonorReport}
-              className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-purple-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-            >
-              <Award className="w-3.5 h-3.5" /> Laporan Donor
-            </button>
-            <button
-              onClick={onPrintCeoReport}
-              className="bg-amber-50 hover:bg-amber-100 text-amber-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-amber-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-            >
-              <TrendingUp className="w-3.5 h-3.5" /> Laporan CEO
-            </button>
-            {permissions.canManageProjects && (
+          {!permissions.isReadOnly && (
+            <div className="flex flex-wrap items-center gap-2 self-start md:self-auto shrink-0">
               <button
-                onClick={() => onEditProjectClick(project.id)}
-                className="bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-slate-200 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                onClick={() => setShowPirs(true)}
+                className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-blue-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
               >
-                <Edit className="w-3.5 h-3.5" /> Edit Proyek
+                <FileText className="w-3.5 h-3.5" /> PIRS Indikator
               </button>
-            )}
-          </div>
+              <button
+                onClick={onPrintDonorReport}
+                className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-purple-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <Award className="w-3.5 h-3.5" /> Laporan Donor
+              </button>
+              <button
+                onClick={onPrintCeoReport}
+                className="bg-amber-50 hover:bg-amber-100 text-amber-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-amber-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <TrendingUp className="w-3.5 h-3.5" /> Laporan CEO
+              </button>
+              {permissions.canManageProjects && (
+                <button
+                  onClick={() => onEditProjectClick(project.id)}
+                  className="bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-slate-200 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                >
+                  <Edit className="w-3.5 h-3.5" /> Edit Proyek
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Goal highlight */}
@@ -472,17 +475,19 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
                   Anggaran Proyek
                 </h4>
               </div>
-              <button
-                onClick={() => {
-                  setNewBudgetActualInput(String(project.budgetActual || 0));
-                  setShowBudgetUpdateModal(true);
-                }}
-                className="p-1.5 px-2.5 border border-amber-200 bg-amber-100/70 hover:bg-amber-100 text-amber-850 rounded-lg flex items-center gap-1 cursor-pointer font-extrabold text-[10px] transition-all"
-                title="Update Realisasi Anggaran"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Update Capaian</span>
-              </button>
+              {!permissions.isReadOnly && permissions.canUpdateFieldProgress && (
+                <button
+                  onClick={() => {
+                    setNewBudgetActualInput(String(project.budgetActual || 0));
+                    setShowBudgetUpdateModal(true);
+                  }}
+                  className="p-1.5 px-2.5 border border-amber-200 bg-amber-100/70 hover:bg-amber-100 text-amber-850 rounded-lg flex items-center gap-1 cursor-pointer font-extrabold text-[10px] transition-all"
+                  title="Update Realisasi Anggaran"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Update Capaian</span>
+                </button>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -582,12 +587,14 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
               </h3>
               <span className="text-[10px] text-slate-400">{activities.length} Kegiatan Ditugaskan</span>
             </div>
-            <button
-              onClick={onAddActivityClick}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-1 px-3 rounded-lg shadow-xs transition-all cursor-pointer"
-            >
-              ＋ Tambah
-            </button>
+            {!permissions.isReadOnly && permissions.canManageProjects && (
+              <button
+                onClick={onAddActivityClick}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-1 px-3 rounded-lg shadow-xs transition-all cursor-pointer"
+              >
+                ＋ Tambah
+              </button>
+            )}
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto max-h-[480px] p-0.5">
@@ -629,26 +636,30 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
                           {act.pic || '—'}
                         </span>
                         {/* CRUD actions with stopPropagation */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditActivityClick(act);
-                          }}
-                          className="p-1.5 hover:bg-slate-200/80 rounded-lg text-slate-500 hover:text-blue-600 cursor-pointer transition-colors"
-                          title="Edit Aktivitas Utama"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteActivityClick(act.id);
-                          }}
-                          className="p-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer transition-colors"
-                          title="Hapus Aktivitas Utama"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {!permissions.isReadOnly && permissions.canManageProjects && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditActivityClick(act);
+                              }}
+                              className="p-1.5 hover:bg-slate-200/80 rounded-lg text-slate-500 hover:text-blue-600 cursor-pointer transition-colors"
+                              title="Edit Aktivitas Utama"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteActivityClick(act.id);
+                              }}
+                              className="p-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer transition-colors"
+                              title="Hapus Aktivitas Utama"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -786,7 +797,7 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
                                 Batal
                               </button>
                             </div>
-                          ) : (
+                          ) : !permissions.isReadOnly ? (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -796,7 +807,7 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
                             >
                               Hapus Semua
                             </button>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     ) : (
@@ -806,39 +817,41 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
                     )}
 
                     {/* Inline updating inputs */}
-                    <div className="space-y-3 pt-3 border-t border-slate-100/60">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                        <div className="md:col-span-1 space-y-1 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
-                          <span>Edit Angka Capaian</span>
-                          <input
-                            type="number"
-                            className="w-full bg-white border border-slate-200 py-2.5 px-3 rounded-lg focus:outline-none focus:border-blue-400 text-xs font-bold text-slate-800"
-                            value={currentVal}
-                            onChange={(e) => handleIndValueChange(ind.id, Number(e.target.value))}
-                          />
+                    {!permissions.isReadOnly && permissions.canUpdateFieldProgress && (
+                      <div className="space-y-3 pt-3 border-t border-slate-100/60">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                          <div className="md:col-span-1 space-y-1 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                            <span>Edit Angka Capaian</span>
+                            <input
+                              type="number"
+                              className="w-full bg-white border border-slate-200 py-2.5 px-3 rounded-lg focus:outline-none focus:border-blue-400 text-xs font-bold text-slate-800"
+                              value={currentVal}
+                              onChange={(e) => handleIndValueChange(ind.id, Number(e.target.value))}
+                            />
+                          </div>
+
+                          <div className="md:col-span-3 space-y-1 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                            <span>Tambah Catatan Progres Baru</span>
+                            <textarea
+                              rows={3}
+                              placeholder="Tulis perkembangan, kendala atau info capaian baru... (Tekan Enter untuk paragraf baru, gunakan tanda • atau - untuk membuat poin-poin agar tertata rapi)"
+                              className="w-full bg-white border border-slate-200 py-2.5 px-3 rounded-lg focus:outline-none focus:border-blue-400 text-xs font-medium text-slate-800 min-h-[90px] leading-relaxed"
+                              value={indNotes[ind.id] || ''}
+                              onChange={(e) => handleIndNotesChange(ind.id, e.target.value)}
+                            />
+                          </div>
                         </div>
 
-                        <div className="md:col-span-3 space-y-1 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
-                          <span>Tambah Catatan Progres Baru</span>
-                          <textarea
-                            rows={3}
-                            placeholder="Tulis perkembangan, kendala atau info capaian baru... (Tekan Enter untuk paragraf baru, gunakan tanda • atau - untuk membuat poin-poin agar tertata rapi)"
-                            className="w-full bg-white border border-slate-200 py-2.5 px-3 rounded-lg focus:outline-none focus:border-blue-400 text-xs font-medium text-slate-800 min-h-[90px] leading-relaxed"
-                            value={indNotes[ind.id] || ''}
-                            onChange={(e) => handleIndNotesChange(ind.id, e.target.value)}
-                          />
+                        <div className="flex justify-end pt-1">
+                          <button
+                            onClick={() => handleSaveInd(ind.id, ind.current, ind.notes || '')}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] py-1.5 px-3.5 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-all"
+                          >
+                            <Check className="w-3.5 h-3.5" /> Simpan Capaian &amp; Catatan
+                          </button>
                         </div>
                       </div>
-
-                      <div className="flex justify-end pt-1">
-                        <button
-                          onClick={() => handleSaveInd(ind.id, ind.current, ind.notes || '')}
-                          className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] py-1.5 px-3.5 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-all"
-                        >
-                          <Check className="w-3.5 h-3.5" /> Simpan Capaian &amp; Catatan
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 );
               })
@@ -856,16 +869,18 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
             </h3>
             <span className="text-[10px] text-slate-400">Total {documents.filter(d => d.projectName === project.name).length} dokumen tersimpan di Google Drive</span>
           </div>
-          <button
-            onClick={() => {
-              if (onGoToDocumentsTab) {
-                onGoToDocumentsTab();
-              }
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-1.5 px-3 rounded-lg shadow-xs transition-all cursor-pointer inline-flex items-center gap-1"
-          >
-            ☁️ Unggah Dokumen
-          </button>
+          {!permissions.isReadOnly && (
+            <button
+              onClick={() => {
+                if (onGoToDocumentsTab) {
+                  onGoToDocumentsTab();
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-1.5 px-3 rounded-lg shadow-xs transition-all cursor-pointer inline-flex items-center gap-1"
+            >
+              ☁️ Unggah Dokumen
+            </button>
+          )}
         </div>
 
         {/* List of project documents */}
@@ -931,29 +946,31 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (window.confirm(`Hapus dokumen "${doc.fileName}" dari proyek ini?`)) {
-                            // Delete from Google Drive if there's an active token and a drive file ID
-                            if (doc.driveFileId) {
-                              try {
-                                const token = getAccessToken() || '';
-                                await deleteFileFromGoogleDrive(doc.driveFileId, token);
-                                console.log(`Document file ${doc.driveFileId} successfully deleted of ${doc.fileName}`);
-                              } catch (err: any) {
-                                console.warn('Gagal menghapus file dari Google Drive:', err);
-                                alert(`Catatan: File di Google Drive tidak dapat dihapus (${err.message || err}), namun metadata di database tetap dihapus.`);
+                      {!permissions.isReadOnly && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Hapus dokumen "${doc.fileName}" dari proyek ini?`)) {
+                              // Delete from Google Drive if there's an active token and a drive file ID
+                              if (doc.driveFileId) {
+                                try {
+                                  const token = getAccessToken() || '';
+                                  await deleteFileFromGoogleDrive(doc.driveFileId, token);
+                                  console.log(`Document file ${doc.driveFileId} successfully deleted of ${doc.fileName}`);
+                                } catch (err: any) {
+                                  console.warn('Gagal menghapus file dari Google Drive:', err);
+                                  alert(`Catatan: File di Google Drive tidak dapat dihapus (${err.message || err}), namun metadata di database tetap dihapus.`);
+                                }
                               }
+                              onUpdateDocuments(documents.filter(d => d.id !== doc.id));
                             }
-                            onUpdateDocuments(documents.filter(d => d.id !== doc.id));
-                          }
-                        }}
-                        className="p-1 px-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-750 border border-transparent hover:border-rose-250 rounded-lg transition-all"
-                        title="Hapus"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                          }}
+                          className="p-1 px-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-750 border border-transparent hover:border-rose-250 rounded-lg transition-all"
+                          title="Hapus"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -967,6 +984,7 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
         projectId={project.id}
         reflections={reflections}
         staffList={staffList}
+        isReadOnly={permissions.isReadOnly}
         onAddReflection={onAddReflection}
         onDeleteReflection={onDeleteReflection}
       />
@@ -1126,8 +1144,9 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
 const PirsIndicatorRow: React.FC<{
   index: number;
   indicator: Indicator;
+  canEdit?: boolean;
   onSave: (desc: string) => void;
-}> = ({ index, indicator, onSave }) => {
+}> = ({ index, indicator, canEdit = true, onSave }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [narrative, setNarrative] = useState(indicator.type || '');
 
@@ -1195,14 +1214,16 @@ const PirsIndicatorRow: React.FC<{
                 Belum ada narasi detail untuk indikator ini. Silakan tambahkan narasi operasional di sini.
               </div>
             )}
-            <div className="pt-0.5">
-              <button
-                onClick={() => setIsEditing(true)}
-                className="text-blue-600 hover:text-blue-800 font-extrabold text-[11px] inline-flex items-center gap-1 transition-all"
-              >
-                📝 {indicator.type ? 'Edit Narasi PIRS' : 'Tambah Narasi PIRS'}
-              </button>
-            </div>
+            {canEdit && (
+              <div className="pt-0.5">
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="text-blue-600 hover:text-blue-800 font-extrabold text-[11px] inline-flex items-center gap-1 transition-all"
+                >
+                  📝 {indicator.type ? 'Edit Narasi PIRS' : 'Tambah Narasi PIRS'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </td>
