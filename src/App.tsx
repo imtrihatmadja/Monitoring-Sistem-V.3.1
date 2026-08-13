@@ -3122,18 +3122,11 @@ export default function App() {
                 <span className={`text-[10px] font-black py-0.5 px-2 rounded ${currentPermissions.badgeBg} ${currentPermissions.badgeText} border ${currentPermissions.badgeBorder} flex items-center gap-1`}>
                   <span>{currentPermissions.badgeIcon}</span> {currentPermissions.title}
                 </span>
-                <button
-                  onClick={() => setIsRoleModalOpen(true)}
-                  className="text-[10px] text-blue-400 hover:text-white font-bold bg-blue-950/80 hover:bg-blue-600 px-2 py-0.5 rounded-lg border border-blue-800 transition-all cursor-pointer shrink-0"
-                  title="Simulasi Akses Role"
-                >
-                  Ubah Role
-                </button>
               </div>
               <p className="text-[11px] text-slate-400 font-medium leading-tight pt-1">
                 {currentRole === 'donor_viewer'
-                  ? 'Anda berada dalam mode pengunjung. Silakan login dengan Google atau ubah role simulasi di atas.'
-                  : `Role aktif saat ini dikunci sebagai ${currentPermissions.title}. Anda dapat berganti role kapan saja.`}
+                  ? 'Anda berada dalam mode pengunjung. Silakan login dengan Google.'
+                  : `Role aktif saat ini dikunci sebagai ${currentPermissions.title}.`}
               </p>
             </div>
 
@@ -3169,23 +3162,9 @@ export default function App() {
               <span className={`text-[9px] font-extrabold py-0.5 px-2 rounded-md ${currentPermissions.badgeBg} ${currentPermissions.badgeText} border ${currentPermissions.badgeBorder} truncate`}>
                 {currentPermissions.badgeIcon} {currentPermissions.title}
               </span>
-              <button
-                onClick={() => setIsRoleModalOpen(true)}
-                className="text-[10px] text-blue-400 hover:text-white font-bold bg-blue-950/80 hover:bg-blue-600 px-2 py-0.5 rounded-lg border border-blue-800 transition-all cursor-pointer shrink-0"
-                title="Simulasi Akses Role"
-              >
-                Ubah Role
-              </button>
             </div>
 
-            <div className="flex items-center justify-between pt-1 gap-2 border-t border-slate-800/60">
-              <button
-                onClick={handleDirectGoogleLogin}
-                className="text-[10px] font-bold text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
-                title="Ganti akun Google terautentikasi"
-              >
-                <span>🔄 Ganti Akun</span>
-              </button>
+            <div className="flex items-center justify-start pt-1 border-t border-slate-800/60">
               <button
                 onClick={() => {
                   setActiveStaffId(null);
