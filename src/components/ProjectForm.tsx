@@ -113,13 +113,17 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
       email: selectedStaffToAdd,
     };
 
+    const staffName = stObj.name || selectedStaffToAdd;
+    const staffId = stObj.id || selectedStaffToAdd;
+    const staffEmail = stObj.email || '';
+
     // Check if already assigned
     if (
       assignedMembers.some(
         (m) =>
-          m.staffId === stObj.id ||
-          (m.staffName && m.staffName.toLowerCase() === stObj.name.toLowerCase()) ||
-          (m.staffEmail && stObj.email && m.staffEmail.toLowerCase() === stObj.email.toLowerCase())
+          m.staffId === staffId ||
+          (m.staffName && m.staffName.toLowerCase() === staffName.toLowerCase()) ||
+          (m.staffEmail && staffEmail && m.staffEmail.toLowerCase() === staffEmail.toLowerCase())
       )
     ) {
       alert('Personel ini sudah ditambahkan ke tim proyek!');
@@ -129,9 +133,9 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
     setAssignedMembers([
       ...assignedMembers,
       {
-        staffId: stObj.id,
-        staffName: stObj.name,
-        staffEmail: stObj.email,
+        staffId: staffId,
+        staffName: staffName,
+        staffEmail: staffEmail,
         projectRole: selectedRoleToAdd,
       },
     ]);

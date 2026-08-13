@@ -3307,9 +3307,12 @@ export default function App() {
                   outcomes={projectOutcomes}
                   reflections={currentProjectReflections}
                   staffList={staffNamesList}
+                  staffObjects={staff}
+                  allProjects={projects}
                   documents={documents}
                   userRole={effectiveProjectRole}
                   onUpdateDocuments={updateDocumentsInStorage}
+                  onUpdateProjects={updateProjectsInStorage}
 
                   onBackToDashboard={() => setActiveTab('dashboard')}
                   onEditProjectClick={handleEditProjectClick}
