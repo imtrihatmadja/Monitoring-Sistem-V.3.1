@@ -274,9 +274,6 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                               {p.name}
                             </button>
                             <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                              <span className={`inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.2 rounded border ${effPermissions.badgeBg} ${effPermissions.badgeText} ${effPermissions.badgeBorder}`}>
-                                {effPermissions.badgeIcon} {effPermissions.title.split('/')[0].trim()}
-                              </span>
                               {memberCount > 0 && (
                                 <span className="inline-flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold bg-slate-50 px-1.5 py-0.2 rounded border border-slate-100">
                                   <Users className="w-2.5 h-2.5" /> {memberCount} Tim
@@ -406,9 +403,6 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                       <div className="flex flex-wrap gap-1">
                         <span className={`text-[10px] font-extrabold py-0.5 px-2.5 rounded-full border uppercase tracking-wide ${statusStyle}`}>
                           {p.status}
-                        </span>
-                        <span className={`text-[10px] font-extrabold py-0.5 px-2 rounded-md border ${effPermissions.badgeBg} ${effPermissions.badgeText} ${effPermissions.badgeBorder}`}>
-                          {effPermissions.badgeIcon} {effPermissions.title.split('/')[0].trim()}
                         </span>
                       </div>
                       {p.donor && (

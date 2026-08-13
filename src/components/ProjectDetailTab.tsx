@@ -302,10 +302,6 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
               <span className="text-[10px] font-bold text-slate-400 bg-slate-50 py-0.5 px-2 rounded-md uppercase tracking-wider">
                 {project.donor || 'Mandiri'}
               </span>
-              <span className="text-[10px] text-slate-300 font-bold">|</span>
-              <span className={`text-[10px] font-extrabold py-0.5 px-2 rounded-md border ${permissions.badgeBg} ${permissions.badgeText} ${permissions.badgeBorder}`}>
-                {permissions.badgeIcon} Akses Anda: {permissions.title}
-              </span>
             </div>
             <h1 className="text-xl font-extrabold text-slate-800 leading-tight tracking-tight">
               {project.name}
@@ -533,14 +529,14 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
         </div>
       </div>
 
-      {/* Tim Proyek & Peran Anggota (Multi-User) Panel */}
+      {/* Tim Proyek Panel */}
       {project.assignedMembers && project.assignedMembers.length > 0 && (
         <div id="project-team-panel" className="bg-white rounded-2xl border border-slate-100 p-4 shadow-xs space-y-3">
           <div className="flex items-center justify-between border-b border-slate-50 pb-2">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-blue-600" />
               <h3 className="font-extrabold text-slate-800 text-xs tracking-wider uppercase">
-                Tim Proyek &amp; Peran Terdaftar ({project.assignedMembers.length} Personel)
+                Tim Proyek ({project.assignedMembers.length} Personel)
               </h3>
             </div>
             {permissions.canManageProjects && (
@@ -555,22 +551,18 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
 
           <div className="flex flex-wrap gap-2">
             {project.assignedMembers.map((m) => {
-              const rCfg = USER_ROLES[m.projectRole] || USER_ROLES.field_officer;
               const nameDisplay = m.staffName || staffList.find((st) => st === m.staffId) || m.staffId;
 
               return (
                 <div
                   key={m.staffId}
-                  className="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 flex items-center gap-2 min-w-[200px]"
+                  className="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 flex items-center gap-2 min-w-[160px]"
                 >
                   <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-extrabold text-xs flex items-center justify-center shrink-0">
                     {nameDisplay.charAt(0)}
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-extrabold text-slate-800 truncate leading-tight">{nameDisplay}</p>
-                    <span className={`inline-block text-[9px] font-extrabold mt-0.5 px-1.5 py-0.2 rounded border ${rCfg.badgeBg} ${rCfg.badgeText} ${rCfg.badgeBorder}`}>
-                      {rCfg.badgeIcon} {rCfg.title.split('/')[0].trim()}
-                    </span>
                   </div>
                 </div>
               );

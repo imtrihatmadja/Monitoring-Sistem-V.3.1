@@ -587,17 +587,6 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <select
-                              value={m.projectRole}
-                              onChange={(e) => handleUpdateMemberRole(m.staffId, e.target.value as UserRoleType)}
-                              className={`py-1 px-2 rounded-lg text-[10px] font-extrabold border cursor-pointer focus:outline-none ${roleCfg.badgeBg} ${roleCfg.badgeText} ${roleCfg.badgeBorder}`}
-                            >
-                              <option value="super_admin">👑 Super Admin</option>
-                              <option value="project_coordinator">📊 Project Coordinator</option>
-                              <option value="field_officer">📑 Field Officer / PIC Lapangan</option>
-                              <option value="donor_viewer">👁️ Donor / Viewer</option>
-                            </select>
-
                             <button
                               type="button"
                               onClick={() => handleRemoveTeamMember(m.staffId)}
