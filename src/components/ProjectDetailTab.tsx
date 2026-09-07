@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Project, Activity, Indicator, Outcome, ProjectReflection, ProjectDocument, UserRoleType, Staff, ProjectMember } from '../types';
+import { Project, Activity, Indicator, Outcome, ProjectReflection, ProjectDocument, UserRoleType, Staff, ProjectMember, LogframeRow, LogframeSyncBundle } from '../types';
 import { getRolePermissions, USER_ROLES } from '../lib/rbac';
 import {
   Play,
@@ -29,13 +29,15 @@ import {
   FileSpreadsheet,
   FileArchive,
   FolderOpen,
-  Clock
+  Clock,
+  Table2
 } from 'lucide-react';
 import { DOC_CATEGORIES } from './DocumentsTab';
 import { ProjectLearningSection } from './ProjectLearningSection';
 import { getAccessToken } from '../lib/googleAuth';
 import { deleteFileFromGoogleDrive } from '../lib/googleDriveService';
 import { FormattedText } from './FormattedText';
+import { LogicalFrameworkModal } from './LogicalFrameworkModal';
 
 interface ProjectDetailTabProps {
   project: Project;
@@ -64,6 +66,7 @@ interface ProjectDetailTabProps {
   onSaveIndicatorPirs?: (indicatorId: string, description: string) => void;
   onPrintDonorReport?: () => void;
   onPrintCeoReport?: () => void;
+  onSyncLogframeBundle?: (projectId: string, rows: LogframeRow[], syncBundle: LogframeSyncBundle) => void;
 }
 
 export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
@@ -93,11 +96,33 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
   onSaveIndicatorPirs,
   onPrintDonorReport,
   onPrintCeoReport,
+  onSyncLogframeBundle,
 }) => {
   const permissions = getRolePermissions(userRole as UserRoleType);
 
   // PIRS page state
   const [showPirs, setShowPirs] = useState(false);
+
+  // Logical Framework state
+  const [showLogframe, setShowLogframe] = useState(false);
+
+  const handleSaveLogframe = (
+    projectId: string, 
+    rows: LogframeRow[], 
+    syncBundle?: LogframeSyncBundle
+  ) => {
+    if (onUpdateProjects && allProjects) {
+      const updated = allProjects.map((p) => (p.id === projectId ? { 
+        ...p, 
+        logframe: rows,
+        progress: syncBundle?.calculatedProgress !== undefined ? syncBundle.calculatedProgress : p.progress 
+      } : p));
+      onUpdateProjects(updated);
+    }
+    if (syncBundle && onSyncLogframeBundle) {
+      onSyncLogframeBundle(projectId, rows, syncBundle);
+    }
+  };
 
   // Inline indicator states for quick value edits
   const [indValues, setIndValues] = useState<Record<string, number>>({});
@@ -406,36 +431,47 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
             )}
           </div>
 
-          {!permissions.isReadOnly && (
-            <div className="flex flex-wrap items-center gap-2 self-start md:self-auto shrink-0">
-              <button
-                onClick={() => setShowPirs(true)}
-                className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-blue-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-              >
-                <FileText className="w-3.5 h-3.5" /> PIRS Indikator
-              </button>
-              <button
-                onClick={onPrintDonorReport}
-                className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-purple-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-              >
-                <Award className="w-3.5 h-3.5" /> Laporan Donor
-              </button>
-              <button
-                onClick={onPrintCeoReport}
-                className="bg-amber-50 hover:bg-amber-100 text-amber-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-amber-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-              >
-                <TrendingUp className="w-3.5 h-3.5" /> Laporan CEO
-              </button>
-              {permissions.canManageProjects && (
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto shrink-0">
+            <button
+              id="btn-logical-framework"
+              onClick={() => setShowLogframe(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs py-2 px-3.5 rounded-xl border border-emerald-500/40 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm hover:shadow-md"
+              title="Buka Logical Framework Project (Spreadsheet LFA)"
+            >
+              <Table2 className="w-3.5 h-3.5 text-emerald-100" /> Logical Frame Work Project
+            </button>
+
+            {!permissions.isReadOnly && (
+              <>
                 <button
-                  onClick={() => onEditProjectClick(project.id)}
-                  className="bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-slate-200 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                  onClick={() => setShowPirs(true)}
+                  className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-blue-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
                 >
-                  <Edit className="w-3.5 h-3.5" /> Edit Proyek
+                  <FileText className="w-3.5 h-3.5" /> PIRS Indikator
                 </button>
-              )}
-            </div>
-          )}
+                <button
+                  onClick={onPrintDonorReport}
+                  className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-purple-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                >
+                  <Award className="w-3.5 h-3.5" /> Laporan Donor
+                </button>
+                <button
+                  onClick={onPrintCeoReport}
+                  className="bg-amber-50 hover:bg-amber-100 text-amber-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-amber-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                >
+                  <TrendingUp className="w-3.5 h-3.5" /> Laporan CEO
+                </button>
+                {permissions.canManageProjects && (
+                  <button
+                    onClick={() => onEditProjectClick(project.id)}
+                    className="bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-xs py-2 px-3.5 rounded-xl border border-slate-200 transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                  >
+                    <Edit className="w-3.5 h-3.5" /> Edit Proyek
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Goal highlight */}
@@ -1364,6 +1400,18 @@ export const ProjectDetailTab: React.FC<ProjectDetailTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Logical Framework Spreadsheet Modal */}
+      <LogicalFrameworkModal
+        isOpen={showLogframe}
+        onClose={() => setShowLogframe(false)}
+        project={project}
+        activities={activities}
+        indicators={indicators}
+        outcomes={outcomes}
+        canEdit={!permissions.isReadOnly}
+        onSaveLogframe={handleSaveLogframe}
+      />
     </div>
   );
 };

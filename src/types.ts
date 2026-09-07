@@ -15,6 +15,23 @@ export interface ProjectMember {
   projectRole: UserRoleType;
 }
 
+export interface LogframeRow {
+  id: string;
+  outcome: string;
+  output: string;
+  activities: string;
+  indicator: string;
+  target: string;
+  achievement: string;
+  variance: string;
+  progress: string;
+  tantangan?: string;
+  pembelajaran?: string;
+  challenges?: string;
+  lessonsLearned?: string;
+  recommendationActivities: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -35,6 +52,7 @@ export interface Project {
   archoredBy?: string;
   archivedAt?: string;
   assignedMembers?: ProjectMember[];
+  logframe?: LogframeRow[];
 }
 
 export interface Indicator {
@@ -52,6 +70,10 @@ export interface Indicator {
   actual?: number;
   sortOrder?: number;
   indicatorName?: string;
+  outcome?: string;
+  output?: string;
+  tantangan?: string;
+  pembelajaran?: string;
 }
 
 export interface ActivityNote {
@@ -96,6 +118,19 @@ export interface Activity {
   projectName?: string;
   deadline?: string;
   challenges?: string;
+  tantangan?: string;
+  pembelajaran?: string;
+  output?: string;
+  outcome?: string;
+  recommendationActivities?: string;
+}
+
+export interface LogframeSyncBundle {
+  activities?: Activity[];
+  indicators?: Indicator[];
+  outcomes?: Outcome[];
+  reflections?: ProjectReflection[];
+  calculatedProgress?: number;
 }
 
 export interface BeneficiaryRegistration {

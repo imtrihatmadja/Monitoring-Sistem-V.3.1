@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Project, Activity, Indicator, Outcome, Beneficiary, Issue, Staff, SubActivity, ProjectReflection, ActivityFile, ProjectDocument, ProjectMember } from './types';
+import { Project, Activity, Indicator, Outcome, Beneficiary, Issue, Staff, SubActivity, ProjectReflection, ActivityFile, ProjectDocument, ProjectMember, LogframeRow, LogframeSyncBundle } from './types';
 import { safeStorage as localStorage } from './lib/safeStorage';
 import {
   INITIAL_PROJECTS,
@@ -676,7 +676,8 @@ export default function App() {
         'staff',
         'project_reflections',
         'project_documents',
-        'project_sub_activities'
+        'project_sub_activities',
+        'project_logframes'
       ];
       
       const nextStatuses: Record<string, 'loading' | 'ok' | 'missing'> = {};
@@ -1512,6 +1513,124 @@ export default function App() {
     updateReflectionsInStorage(reflections.filter((r) => r.id !== refId));
     setSyncToast('success');
     setTimeout(() => setSyncToast(''), 3000);
+  };
+
+  // --- SYNC LOGICAL FRAMEWORK TO ALL ASSOCIATED PROJECT MODULES ---
+  const handleSyncLogframeToProject = (
+    projectId: string,
+    rows: LogframeRow[],
+    bundle: LogframeSyncBundle
+  ) => {
+    // 1. Update Project logframe data & calculated progress
+    const updatedProjects = projects.map((p) =>
+      isIdMatch(p.id, projectId)
+        ? {
+            ...p,
+            logframe: rows,
+            progress: bundle.calculatedProgress !== undefined ? bundle.calculatedProgress : p.progress,
+          }
+        : p
+    );
+    updateProjectsInStorage(updatedProjects);
+
+    // 2. Sync Activities: update existing activities or append newly parsed ones
+    if (bundle.activities && bundle.activities.length > 0) {
+      let mergedActs = [...activities];
+      bundle.activities.forEach((act) => {
+        const existingIdx = mergedActs.findIndex(
+          (a) => a.id === act.id || (isIdMatch(a.projectId, projectId) && a.title.trim().toLowerCase() === act.title.trim().toLowerCase())
+        );
+        if (existingIdx >= 0) {
+          mergedActs[existingIdx] = {
+            ...mergedActs[existingIdx],
+            ...act,
+            projectId,
+          };
+        } else {
+          mergedActs.push({
+            ...act,
+            projectId,
+          });
+        }
+      });
+      updateActivitiesInStorage(mergedActs);
+    }
+
+    // 3. Sync Indicators: update existing indicators or append newly parsed ones
+    if (bundle.indicators && bundle.indicators.length > 0) {
+      let mergedInds = [...indicators];
+      bundle.indicators.forEach((ind) => {
+        const existingIdx = mergedInds.findIndex(
+          (i) => i.id === ind.id || (isIdMatch(i.projectId, projectId) && i.title.trim().toLowerCase() === ind.title.trim().toLowerCase())
+        );
+        if (existingIdx >= 0) {
+          mergedInds[existingIdx] = {
+            ...mergedInds[existingIdx],
+            ...ind,
+            projectId,
+          };
+        } else {
+          mergedInds.push({
+            ...ind,
+            projectId,
+          });
+        }
+      });
+      updateIndicatorsInStorage(mergedInds);
+    }
+
+    // 4. Sync Outcomes: update existing outcomes or append newly parsed ones
+    if (bundle.outcomes && bundle.outcomes.length > 0) {
+      let mergedOutcomes = [...outcomes];
+      bundle.outcomes.forEach((out) => {
+        const existingIdx = mergedOutcomes.findIndex(
+          (o) => o.id === out.id || (isIdMatch(o.projectId, projectId) && o.title.trim().toLowerCase() === out.title.trim().toLowerCase())
+        );
+        if (existingIdx >= 0) {
+          mergedOutcomes[existingIdx] = {
+            ...mergedOutcomes[existingIdx],
+            ...out,
+            projectId,
+          };
+        } else {
+          mergedOutcomes.push({
+            ...out,
+            projectId,
+          });
+        }
+      });
+      updateOutcomesInStorage(mergedOutcomes);
+    }
+
+    // 5. Sync Reflections (Tantangan & Pembelajaran)
+    if (bundle.reflections && bundle.reflections.length > 0) {
+      let mergedReflections = [...reflections];
+      bundle.reflections.forEach((ref) => {
+        const existingIdx = mergedReflections.findIndex(
+          (r) => r.id === ref.id || (isIdMatch(r.projectId, projectId) && r.title.trim().toLowerCase() === ref.title.trim().toLowerCase())
+        );
+        if (existingIdx >= 0) {
+          mergedReflections[existingIdx] = {
+            ...mergedReflections[existingIdx],
+            ...ref,
+            projectId,
+          };
+        } else {
+          mergedReflections.push({
+            ...ref,
+            projectId,
+          });
+        }
+      });
+      updateReflectionsInStorage(mergedReflections);
+    }
+
+    setSyncToast('success');
+    setSyncToastMsg('Data Logical Framework berhasil disinkronkan ke Supabase & seluruh modul proyek!');
+    setTimeout(() => {
+      setSyncToast('');
+      setSyncToastMsg('');
+    }, 4000);
   };
 
   // --- POPULATE OTHER CORE INTEGRATION TAB FUNCTIONS ---
@@ -3362,6 +3481,7 @@ export default function App() {
                     setPrintDefaultType('ceo');
                     setIsPrintModalOpen(true);
                   }}
+                  onSyncLogframeBundle={handleSyncLogframeToProject}
                 />
               );
             })()
@@ -4106,6 +4226,27 @@ CREATE TABLE IF NOT EXISTS project_sub_activities (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
+-- 11. Tabel Project Logframes (Logical Framework Terintegrasi)
+CREATE TABLE IF NOT EXISTS project_logframes (
+    id UUID PRIMARY KEY,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    project_name TEXT DEFAULT 'DFW Indonesia',
+    outcome TEXT,
+    output TEXT,
+    activities TEXT,
+    indicator TEXT,
+    target TEXT,
+    achievement TEXT,
+    variance TEXT,
+    progress TEXT,
+    tantangan TEXT,
+    pembelajaran TEXT,
+    recommendation_activities TEXT,
+    row_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
 -- MATIKAN RLS AGAR INTERAKSI INTEGRASI DAPAT DISINKRONISASI AKTIF LANGSUNG
 ALTER TABLE projects DISABLE ROW LEVEL SECURITY;
 ALTER TABLE project_indicators DISABLE ROW LEVEL SECURITY;
@@ -4117,8 +4258,10 @@ ALTER TABLE staff DISABLE ROW LEVEL SECURITY;
 ALTER TABLE project_reflections DISABLE ROW LEVEL SECURITY;
 ALTER TABLE project_documents DISABLE ROW LEVEL SECURITY;
 ALTER TABLE project_sub_activities DISABLE ROW LEVEL SECURITY;
+ALTER TABLE project_logframes DISABLE ROW LEVEL SECURITY;
 
 -- KOSTUMISASI COMPATIBILITY: JALANKAN ALTER TABLE JIKA TABEL SUDAH ADA SEBELUMNYA DAN MENGALAMI HILANG KOLOM ATAU PERBAIKAN CONSTRAINT
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS logframe JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT false;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS archived_by TEXT;
@@ -4205,7 +4348,13 @@ ALTER TABLE project_sub_activities ADD COLUMN IF NOT EXISTS archived_by TEXT;
 ALTER TABLE project_sub_activities ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
 ALTER TABLE project_sub_activities ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
 ALTER TABLE project_sub_activities DROP CONSTRAINT IF EXISTS project_sub_activities_parent_activity_id_fkey;
-ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_activity_id_fkey FOREIGN KEY (parent_activity_id) REFERENCES project_activities(id) ON DELETE CASCADE NOT VALID;`;
+ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_activity_id_fkey FOREIGN KEY (parent_activity_id) REFERENCES project_activities(id) ON DELETE CASCADE NOT VALID;
+
+ALTER TABLE project_logframes ADD COLUMN IF NOT EXISTS project_name TEXT DEFAULT 'DFW Indonesia';
+ALTER TABLE project_logframes ADD COLUMN IF NOT EXISTS tantangan TEXT;
+ALTER TABLE project_logframes ADD COLUMN IF NOT EXISTS pembelajaran TEXT;
+ALTER TABLE project_logframes ADD COLUMN IF NOT EXISTS recommendation_activities TEXT;
+ALTER TABLE project_logframes ADD COLUMN IF NOT EXISTS row_order INTEGER DEFAULT 0;`;
                             navigator.clipboard.writeText(sqlText);
                             setSqlCopied(true);
                             setTimeout(() => setSqlCopied(false), 2500);
@@ -4432,6 +4581,27 @@ ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_
                         &nbsp;&nbsp;&nbsp;&nbsp;updated_at TIMESTAMP WITH TIME ZONE <span className="text-blue-400">DEFAULT</span> timezone('utc'::text, now()){"\n"}
                         );{"\n"}{"\n"}
 
+                        <span className="text-amber-400">-- 11. Tabel Project Logframes (Logical Framework Terintegrasi)</span>{"\n"}
+                        <span className="text-purple-400">CREATE TABLE IF NOT EXISTS</span> project_logframes ({"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;id UUID <span className="text-emerald-400">PRIMARY KEY</span>,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;project_id UUID <span className="text-emerald-400">REFERENCES</span> projects(id) <span className="text-purple-400">ON DELETE CASCADE</span>,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;project_name TEXT <span className="text-blue-400">DEFAULT</span> <span className="text-emerald-400">'DFW Indonesia'</span>,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;outcome TEXT,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;output TEXT,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;activities TEXT,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;indicator TEXT,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;target TEXT,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;achievement TEXT,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;variance TEXT,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;progress TEXT,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;tantangan TEXT,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;pembelajaran TEXT,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;recommendation_activities TEXT,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;row_order INTEGER <span className="text-blue-400">DEFAULT</span> 0,{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;created_at TIMESTAMP WITH TIME ZONE <span className="text-blue-400">DEFAULT</span> timezone('utc'::text, now()),{"\n"}
+                        &nbsp;&nbsp;&nbsp;&nbsp;updated_at TIMESTAMP WITH TIME ZONE <span className="text-blue-400">DEFAULT</span> timezone('utc'::text, now()){"\n"}
+                        );{"\n"}{"\n"}
+
                         <span className="text-amber-400">-- PENTING: DISABLE ROW LEVEL SECURITY (RLS)</span>{"\n"}
                         <span className="text-purple-400">ALTER TABLE</span> projects <span className="text-emerald-400">DISABLE ROW LEVEL SECURITY</span>;{"\n"}
                         <span className="text-purple-400">ALTER TABLE</span> project_indicators <span className="text-emerald-400">DISABLE ROW LEVEL SECURITY</span>;{"\n"}
@@ -4442,9 +4612,11 @@ ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_
                         <span className="text-purple-400">ALTER TABLE</span> staff <span className="text-emerald-400">DISABLE ROW LEVEL SECURITY</span>;{"\n"}
                         <span className="text-purple-400">ALTER TABLE</span> project_reflections <span className="text-emerald-400">DISABLE ROW LEVEL SECURITY</span>;{"\n"}
                         <span className="text-purple-400">ALTER TABLE</span> project_documents <span className="text-emerald-400">DISABLE ROW LEVEL SECURITY</span>;{"\n"}
-                        <span className="text-purple-400">ALTER TABLE</span> project_sub_activities <span className="text-emerald-400">DISABLE ROW LEVEL SECURITY</span>;{"\n"}{"\n"}
+                        <span className="text-purple-400">ALTER TABLE</span> project_sub_activities <span className="text-emerald-400">DISABLE ROW LEVEL SECURITY</span>;{"\n"}
+                        <span className="text-purple-400">ALTER TABLE</span> project_logframes <span className="text-emerald-400">DISABLE ROW LEVEL SECURITY</span>;{"\n"}{"\n"}
 
                         <span className="text-amber-400">-- KOSTUMISASI COMPATIBILITY: JALANKAN ALTER TABLE JIKA TABEL SUDAH ADA SEBELUMNYA DAN MENGALAMI HILANG KOLOM ATAU PERBAIKAN CONSTRAINT</span>{"\n"}
+                        <span className="text-purple-400">ALTER TABLE</span> projects <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> logframe JSONB <span className="text-blue-400">DEFAULT</span> <span className="text-emerald-400">'[]'::jsonb</span>;{"\n"}
                         <span className="text-purple-400">ALTER TABLE</span> projects <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> description TEXT;{"\n"}
                         <span className="text-purple-400">ALTER TABLE</span> projects <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> archived BOOLEAN <span className="text-blue-400">DEFAULT</span> <span className="text-emerald-400">false</span>;{"\n"}
                         <span className="text-purple-400">ALTER TABLE</span> projects <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> archived_by TEXT;{"\n"}
@@ -4534,7 +4706,13 @@ ALTER TABLE project_sub_activities ADD CONSTRAINT project_sub_activities_parent_
                         <span className="text-purple-400">ALTER TABLE</span> project_sub_activities <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> archived BOOLEAN <span className="text-blue-400">DEFAULT</span> <span className="text-emerald-400">false</span>;{"\n"}
                         <span className="text-purple-400">ALTER TABLE</span> project_sub_activities <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> archived_by TEXT;{"\n"}
                         <span className="text-purple-400">ALTER TABLE</span> project_sub_activities <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> created_at TIMESTAMP WITH TIME ZONE <span className="text-blue-400">DEFAULT</span> timezone('utc'::text, now());{"\n"}
-                        <span className="text-purple-400">ALTER TABLE</span> project_sub_activities <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> updated_at TIMESTAMP WITH TIME ZONE <span className="text-blue-400">DEFAULT</span> timezone('utc'::text, now());
+                        <span className="text-purple-400">ALTER TABLE</span> project_sub_activities <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> updated_at TIMESTAMP WITH TIME ZONE <span className="text-blue-400">DEFAULT</span> timezone('utc'::text, now());{"\n"}{"\n"}
+
+                        <span className="text-purple-400">ALTER TABLE</span> project_logframes <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> project_name TEXT <span className="text-blue-400">DEFAULT</span> <span className="text-emerald-400">'DFW Indonesia'</span>;{"\n"}
+                        <span className="text-purple-400">ALTER TABLE</span> project_logframes <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> tantangan TEXT;{"\n"}
+                        <span className="text-purple-400">ALTER TABLE</span> project_logframes <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> pembelajaran TEXT;{"\n"}
+                        <span className="text-purple-400">ALTER TABLE</span> project_logframes <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> recommendation_activities TEXT;{"\n"}
+                        <span className="text-purple-400">ALTER TABLE</span> project_logframes <span className="text-purple-400">ADD COLUMN IF NOT EXISTS</span> row_order INTEGER <span className="text-blue-400">DEFAULT</span> 0;
                       </div>
                     </div>
                   </div>

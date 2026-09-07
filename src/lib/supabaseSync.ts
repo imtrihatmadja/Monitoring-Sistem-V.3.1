@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from '../supabaseClient';
-import { Project, Indicator, Outcome, Activity, SubActivity, Beneficiary, Issue, Staff, ProjectReflection, ProjectDocument } from '../types';
+import { Project, Indicator, Outcome, Activity, SubActivity, Beneficiary, Issue, Staff, ProjectReflection, ProjectDocument, LogframeRow } from '../types';
 import { safeStorage } from './safeStorage';
 
 // Global caches for schema discovery with comprehensive static fallback definitions
@@ -7,17 +7,18 @@ const fallbackSchemaColumns: Record<string, string[]> = {
   projects: [
     'id', 'name', 'location', 'owner', 'pic', 'donor', 'status', 'start_date', 'deadline', 
     'progress', 'budget_approved', 'budget_actual', 'desc', 'note', 'goal', 
-    'is_archived', 'archored_by', 'archived_at', 'assigned_members'
+    'is_archived', 'archored_by', 'archived_at', 'assigned_members', 'logframe'
   ],
   project_indicators: [
     'id', 'project_id', 'title', 'indicator_name', 'target', 'current', 'unit', 'last_updated', 'last_value', 'project_name', 'notes', 'notes_updated_at',
-    'type', 'actual', 'sort_order'
+    'type', 'actual', 'sort_order', 'outcome', 'output', 'tantangan', 'pembelajaran'
   ],
   project_outcomes: [
-    'id', 'project_id', 'title', 'outcome_text', 'project_name', 'sort_order'
+    'id', 'project_id', 'title', 'outcome_text', 'project_name', 'sort_order', 'description', 'output'
   ],
   project_activities: [
-    'id', 'project_id', 'title', 'desc', 'pic', 'status', 'start_date', 'due_date', 'progress', 'notes', 'files', 'project_name', 'deadline', 'challenges'
+    'id', 'project_id', 'title', 'desc', 'pic', 'status', 'start_date', 'due_date', 'progress', 'notes', 'files', 'project_name', 'deadline', 'challenges',
+    'tantangan', 'pembelajaran', 'lessons_learned', 'recommendation_activities', 'output', 'outcome', 'target', 'achievement', 'variance'
   ],
   beneficiaries: [
     'id', 'name', 'full_name', 'phone', 'gender', 'birth_year', 'location', 'occupation', 'email', 'note', 'notes', 'registrations'
@@ -39,6 +40,11 @@ const fallbackSchemaColumns: Record<string, string[]> = {
   ],
   project_sub_activities: [
     'id', 'parent_activity_id', 'title', 'desc', 'pic', 'status', 'priority', 'due', 'notes'
+  ],
+  project_logframes: [
+    'id', 'project_id', 'project_name', 'outcome', 'output', 'activities', 'activity_id', 'indicator', 'indicator_id',
+    'target', 'achievement', 'variance', 'progress', 'tantangan', 'pembelajaran', 'recommendation_activities',
+    'row_order', 'created_at', 'updated_at'
   ]
 };
 
@@ -52,7 +58,8 @@ const fallbackSchemaUuidColumns: Record<string, string[]> = {
   staff: ['id'],
   project_reflections: ['id', 'project_id'],
   project_sub_activities: ['id', 'parent_activity_id'],
-  project_documents: ['id']
+  project_documents: ['id'],
+  project_logframes: ['id', 'project_id', 'activity_id', 'indicator_id']
 };
 
 let schemaColumns: Record<string, string[]> = { ...fallbackSchemaColumns };
@@ -340,7 +347,7 @@ function fromDbRow<T>(row: any): T {
     let val = row[key];
     if (typeof val === 'string') {
       const trimmed = val.trim();
-      if ((key === 'notes' || key === 'files' || key === 'updates' || key === 'registrations' || key === 'assigned_members' || key === 'assignedMembers') && (trimmed.startsWith('[') || trimmed.startsWith('{'))) {
+      if ((key === 'notes' || key === 'files' || key === 'updates' || key === 'registrations' || key === 'assigned_members' || key === 'assignedMembers' || key === 'logframe') && (trimmed.startsWith('[') || trimmed.startsWith('{'))) {
         try {
           val = JSON.parse(trimmed);
         } catch {
@@ -554,6 +561,9 @@ function mapProjectToDb(proj: Project) {
   row.archored_by = proj.archoredBy || null; // Respect types typo "archoredBy"
   row.pic = proj.pic || proj.owner || null;
   row.assigned_members = proj.assignedMembers ? JSON.stringify(proj.assignedMembers) : null;
+  if (proj.logframe) {
+    row.logframe = typeof proj.logframe === 'string' ? proj.logframe : JSON.stringify(proj.logframe);
+  }
   return cleanRowAndPrepare('projects', row);
 }
 
@@ -571,6 +581,10 @@ function mapIndicatorToDb(ind: Indicator) {
   row.type = ind.type || null;
   row.description = ind.type || ind.notes || null;
   row.sort_order = ind.sortOrder !== undefined ? Number(ind.sortOrder) : 0;
+  row.outcome = ind.outcome || null;
+  row.output = ind.output || null;
+  row.tantangan = ind.tantangan || null;
+  row.pembelajaran = ind.pembelajaran || null;
   
   // Attach project_name to fulfill the database's not-null constraint
   const cleanId = textToUuid(ind.projectId);
@@ -587,6 +601,7 @@ function mapOutcomeToDb(out: Outcome) {
   row.title = out.title;
   row.outcome_text = out.outcomeText || out.title;
   row.sort_order = out.sortOrder !== undefined ? Number(out.sortOrder) : 0;
+  row.description = out.title;
   
   // Attach project_name to fulfill the database's not-null constraint
   const cleanId = textToUuid(out.projectId);
@@ -606,7 +621,13 @@ function mapActivityToDb(act: Activity) {
   
   // Cross-compatibility mappings for database column variations
   row.deadline = act.deadline || act.dueDate || null;
-  row.challenges = act.challenges || null;
+  row.challenges = act.challenges || act.tantangan || null;
+  row.tantangan = act.tantangan || act.challenges || null;
+  row.pembelajaran = act.pembelajaran || null;
+  row.lessons_learned = act.pembelajaran || null;
+  row.recommendation_activities = act.recommendationActivities || null;
+  row.output = act.output || null;
+  row.outcome = act.outcome || null;
   
   // Attach project_name to fulfill any potential database's not-null constraint
   const cleanId = textToUuid(act.projectId);
@@ -805,7 +826,7 @@ export const SupabaseSync = {
         const allTables = [
           'projects', 'project_indicators', 'project_outcomes', 'project_activities',
           'beneficiaries', 'issues', 'staff', 'project_sub_activities',
-          'project_reflections', 'project_documents'
+          'project_reflections', 'project_documents', 'project_logframes'
         ];
         allTables.forEach(t => tablesToFetch.add(t));
       } else {
@@ -820,6 +841,7 @@ export const SupabaseSync = {
         } else if (activeTab === 'projects' || activeTab === 'add_project' || activeTab === 'edit_project') {
           tablesToFetch.add('project_indicators');
           tablesToFetch.add('project_outcomes');
+          tablesToFetch.add('project_logframes');
         } else if (activeTab === 'project_detail') {
           tablesToFetch.add('project_indicators');
           tablesToFetch.add('project_outcomes');
@@ -827,6 +849,7 @@ export const SupabaseSync = {
           tablesToFetch.add('project_sub_activities');
           tablesToFetch.add('project_reflections');
           tablesToFetch.add('project_documents');
+          tablesToFetch.add('project_logframes');
         } else if (activeTab === 'beneficiary') {
           tablesToFetch.add('beneficiaries');
         } else if (activeTab === 'issues') {
@@ -843,7 +866,7 @@ export const SupabaseSync = {
           const allTables = [
             'projects', 'project_indicators', 'project_outcomes', 'project_activities',
             'beneficiaries', 'issues', 'staff', 'project_sub_activities',
-            'project_reflections', 'project_documents'
+            'project_reflections', 'project_documents', 'project_logframes'
           ];
           allTables.forEach(t => tablesToFetch.add(t));
         }
@@ -957,7 +980,8 @@ export const SupabaseSync = {
         resStaff,
         resSubActs,
         resReflections,
-        resDocs
+        resDocs,
+        resLogframes
       ] = await Promise.all([
         fetchGuarded('projects'),
         fetchGuarded('project_indicators'),
@@ -968,7 +992,8 @@ export const SupabaseSync = {
         fetchGuarded('staff'),
         fetchGuarded('project_sub_activities'),
         fetchGuarded('project_reflections'),
-        fetchGuarded('project_documents')
+        fetchGuarded('project_documents'),
+        fetchGuarded('project_logframes')
       ]);
 
       // Helper to process IDs consistently
@@ -989,6 +1014,30 @@ export const SupabaseSync = {
         return s;
       });
 
+      // Prepare logframes grouped by project_id
+      const logframesByProjectId: Record<string, LogframeRow[]> = {};
+      if (resLogframes.data && resLogframes.data.length > 0) {
+        for (const raw of resLogframes.data) {
+          const pid = raw.project_id;
+          if (!pid) continue;
+          if (!logframesByProjectId[pid]) logframesByProjectId[pid] = [];
+          logframesByProjectId[pid].push({
+            id: raw.id,
+            outcome: raw.outcome || '',
+            output: raw.output || '',
+            activities: raw.activities || '',
+            indicator: raw.indicator || '',
+            target: raw.target || '',
+            achievement: raw.achievement || '',
+            variance: raw.variance || '',
+            progress: raw.progress || '',
+            tantangan: raw.tantangan || '',
+            pembelajaran: raw.pembelajaran || '',
+            recommendationActivities: raw.recommendation_activities || ''
+          });
+        }
+      }
+
       // 2. Process projects first to populate name cache
       const projectsProcessed = resProjects.data === undefined ? undefined : (resProjects.data || []).map(row => {
         const item = fromDbRow<Project>(row);
@@ -1002,6 +1051,28 @@ export const SupabaseSync = {
           projectIdToName.set(item.id, item.name);
           projectIdToName.set(textToUuid(item.id), item.name);
         }
+
+        // Attach logframe from project_logframes table or item.logframe or safeStorage
+        const cleanId = textToUuid(item.id);
+        if (logframesByProjectId[cleanId] && logframesByProjectId[cleanId].length > 0) {
+          item.logframe = logframesByProjectId[cleanId];
+        } else if (logframesByProjectId[item.id] && logframesByProjectId[item.id].length > 0) {
+          item.logframe = logframesByProjectId[item.id];
+        }
+
+        if (item.logframe && Array.isArray(item.logframe)) {
+          try {
+            safeStorage.setItem(`dfw_logframe_${item.id}`, JSON.stringify(item.logframe));
+          } catch (e) {}
+        } else {
+          try {
+            const cachedLf = safeStorage.getItem(`dfw_logframe_${item.id}`);
+            if (cachedLf) {
+              item.logframe = JSON.parse(cachedLf);
+            }
+          } catch (e) {}
+        }
+
         return item;
       });
 
@@ -1343,6 +1414,134 @@ export const SupabaseSync = {
     } catch (e: any) {
       console.warn(`Could not delete document: [${e.code || '-'}] ${e.message || e}`);
       return false;
+    }
+  },
+
+  async saveLogframeRows(projectId: string, rows: LogframeRow[]): Promise<{ success: boolean; error?: any }> {
+    const cleanProjectId = textToUuid(projectId);
+    const projectName = projectIdToName.get(projectId) || projectIdToName.get(cleanProjectId) || 'DFW Indonesia';
+
+    // 1. Update project.logframe in local cache and try updating on projects table
+    try {
+      safeStorage.setItem(`dfw_logframe_${projectId}`, JSON.stringify(rows));
+      safeStorage.setItem(`dfw_logframe_${cleanProjectId}`, JSON.stringify(rows));
+    } catch (e) {}
+
+    if (!isSupabaseConfigured || !supabase) {
+      return { success: true };
+    }
+
+    try {
+      const projUpdatePayload: any = {
+        logframe: JSON.stringify(rows)
+      };
+      await supabase.from('projects').update(projUpdatePayload).eq('id', cleanProjectId);
+    } catch (e) {
+      console.warn('Silent note: projects.logframe column might not exist yet:', e);
+    }
+
+    // 2. Insert into project_logframes table
+    try {
+      const dbRows = rows.map((r, idx) => {
+        const rowId = textToUuid(`${cleanProjectId}-row-${idx}-${r.id || ''}`);
+        const row: any = {
+          id: rowId,
+          project_id: cleanProjectId,
+          project_name: projectName,
+          outcome: r.outcome || '',
+          output: r.output || '',
+          activities: r.activities || '',
+          indicator: r.indicator || '',
+          target: r.target || '',
+          achievement: r.achievement || '',
+          variance: r.variance || '',
+          progress: r.progress || '',
+          tantangan: r.tantangan || '',
+          pembelajaran: r.pembelajaran || '',
+          recommendation_activities: r.recommendationActivities || '',
+          row_order: idx,
+          updated_at: new Date().toISOString()
+        };
+        return cleanRowAndPrepare('project_logframes', row);
+      });
+
+      // Clear existing records for this project in project_logframes
+      const { error: delErr } = await supabase
+        .from('project_logframes')
+        .delete()
+        .eq('project_id', cleanProjectId);
+
+      if (delErr) {
+        console.warn('project_logframes delete notice (table might be missing or empty):', delErr.message);
+      }
+
+      if (dbRows.length > 0) {
+        const { error: insErr } = await supabase
+          .from('project_logframes')
+          .insert(dbRows);
+
+        if (insErr) {
+          console.warn('Batch insert project_logframes fallback to row-by-row upsert:', insErr.message);
+          for (const row of dbRows) {
+            await safeUpsert('project_logframes', row, (item) => cleanRowAndPrepare('project_logframes', item));
+          }
+        }
+      }
+
+      clearFetchCache();
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error saving logframe rows to Supabase:', err);
+      return { success: false, error: err };
+    }
+  },
+
+  async fetchLogframeRows(projectId: string): Promise<LogframeRow[] | null> {
+    const cleanProjectId = textToUuid(projectId);
+    if (!isSupabaseConfigured || !supabase) {
+      try {
+        const raw = safeStorage.getItem(`dfw_logframe_${projectId}`) || safeStorage.getItem(`dfw_logframe_${cleanProjectId}`);
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('project_logframes')
+        .select('*')
+        .eq('project_id', cleanProjectId)
+        .order('row_order', { ascending: true });
+
+      if (error) {
+        console.warn('fetchLogframeRows notice:', error.message);
+        const raw = safeStorage.getItem(`dfw_logframe_${projectId}`) || safeStorage.getItem(`dfw_logframe_${cleanProjectId}`);
+        return raw ? JSON.parse(raw) : null;
+      }
+
+      if (data && data.length > 0) {
+        return data.map((d: any) => ({
+          id: d.id,
+          outcome: d.outcome || '',
+          output: d.output || '',
+          activities: d.activities || '',
+          indicator: d.indicator || '',
+          target: d.target || '',
+          achievement: d.achievement || '',
+          variance: d.variance || '',
+          progress: d.progress || '',
+          tantangan: d.tantangan || '',
+          pembelajaran: d.pembelajaran || '',
+          recommendationActivities: d.recommendation_activities || ''
+        }));
+      }
+
+      const raw = safeStorage.getItem(`dfw_logframe_${projectId}`) || safeStorage.getItem(`dfw_logframe_${cleanProjectId}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      console.warn('fetchLogframeRows error:', e);
+      return null;
     }
   },
 
